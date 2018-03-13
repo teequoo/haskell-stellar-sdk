@@ -39,7 +39,7 @@ fromSeed seed = KeyPair public private seed
     where (public, private) = fromJust $ createKeypairFromSeed_ seed
 
 fromPrivateKey :: T.Text -> KeyPair
-fromPrivateKey = fromSeed.(decodeKey EncodingSeed)
+fromPrivateKey = fromSeed.decodePrivate
 
 signatureHint :: KeyPair -> B.ByteString
 signatureHint = (B.drop 28).unPublicKey.kpPublicKey

@@ -1,6 +1,20 @@
 {-# LANGUAGE DataKinds #-}
 
-module Network.Stellar.Operation where
+module Network.Stellar.Operation
+    ( makeCreateAccountOperation
+    , makePaymentOperation
+    , makeNativePaymentOperation
+    , makePathPaymentOperation
+    , makeManageOfferOperation
+    , makeCreatePassiveOfferOperation
+    , makeSetOptionsOperation
+    , makeChangeTrustOperation
+    , makeAllowTrustOperation
+    , makeAccountMergeOperation
+    , makeInflationOperation
+    , makeManageDataOperation
+    )
+where
 
 -- import qualified Crypto.Sign.Ed25519 as C
 -- import qualified Data.ByteString as B
@@ -43,35 +57,35 @@ makeNativePaymentOperation :: AccountID -> Int64 -> Operation
 makeNativePaymentOperation destination amount = makePaymentOperation destination Asset'ASSET_TYPE_NATIVE amount
 
 makePathPaymentOperation :: Asset -> Int64 -> AccountID -> Asset -> Int64 -> [Asset] -> Operation
-makePathPaymentOperation sendAsset sendMax destination destAsset destAmount path = 
+makePathPaymentOperation sendAsset sendMax destination destAsset destAmount path =
     makeOperationGeneric6 OperationBody'PATH_PAYMENT PathPaymentOp sendAsset sendMax destination destAsset destAmount (XDR.boundLengthArrayFromList path)
 
 makeManageOfferOperation :: Asset -> Asset -> Int64 -> (Int32, Int32) -> Uint64 -> Operation
-makeManageOfferOperation selling buying amount (priceN,priceD) offerId = 
+makeManageOfferOperation selling buying amount (priceN,priceD) offerId =
     makeOperationGeneric5 OperationBody'MANAGE_OFFER ManageOfferOp selling buying amount (Price priceN priceD) offerId
 
 makeCreatePassiveOfferOperation :: Asset -> Asset -> Int64 -> (Int32, Int32) -> Operation
-makeCreatePassiveOfferOperation selling buying amount (priceN,priceD) = 
+makeCreatePassiveOfferOperation selling buying amount (priceN,priceD) =
     makeOperationGeneric4 OperationBody'CREATE_PASSIVE_OFFER CreatePassiveOfferOp selling buying amount (Price priceN priceD)
 
-makeSetOptionsOp :: (Maybe AccountID) -> (Maybe Uint32) -> (Maybe Uint32) -> (Maybe Uint32) -> (Maybe Uint32) -> (Maybe Uint32) -> (Maybe Uint32) -> (Maybe String32) -> (Maybe Signer) -> Operation
-makeSetOptionsOp inflationDest clearFlags setFlags masterWeight lowThreshold medThreshold highThreshold homeDomain signer =
+makeSetOptionsOperation :: (Maybe AccountID) -> (Maybe Uint32) -> (Maybe Uint32) -> (Maybe Uint32) -> (Maybe Uint32) -> (Maybe Uint32) -> (Maybe Uint32) -> (Maybe String32) -> (Maybe Signer) -> Operation
+makeSetOptionsOperation inflationDest clearFlags setFlags masterWeight lowThreshold medThreshold highThreshold homeDomain signer =
     Operation Nothing $ OperationBody'SET_OPTIONS $ SetOptionsOp inflationDest clearFlags setFlags masterWeight lowThreshold medThreshold highThreshold homeDomain signer
 
-makeChangeTrustOp :: Asset -> Int64 -> Operation
-makeChangeTrustOp = makeOperationGeneric2 OperationBody'CHANGE_TRUST ChangeTrustOp
+makeChangeTrustOperation :: Asset -> Int64 -> Operation
+makeChangeTrustOperation = makeOperationGeneric2 OperationBody'CHANGE_TRUST ChangeTrustOp
 
-makeAllowTrustOp :: AccountID -> String -> Bool -> Operation
-makeAllowTrustOp trustor asset authorize =
-    makeOperationGeneric3 OperationBody'ALLOW_TRUST AllowTrustOp trustor 
+makeAllowTrustOperation :: AccountID -> String -> Bool -> Operation
+makeAllowTrustOperation trustor asset authorize =
+    makeOperationGeneric3 OperationBody'ALLOW_TRUST AllowTrustOp trustor
         (makeAssetIdentifier AllowTrustOpAsset'ASSET_TYPE_CREDIT_ALPHANUM4 AllowTrustOpAsset'ASSET_TYPE_CREDIT_ALPHANUM12 asset) authorize
 
-makeAccountMergeOp :: AccountID -> Operation
-makeAccountMergeOp = (Operation Nothing).OperationBody'ACCOUNT_MERGE
+makeAccountMergeOperation :: AccountID -> Operation
+makeAccountMergeOperation = (Operation Nothing).OperationBody'ACCOUNT_MERGE
 
-makeInflationOp :: Operation
-makeInflationOp = Operation Nothing OperationBody'INFLATION
+makeInflationOperation :: Operation
+makeInflationOperation = Operation Nothing OperationBody'INFLATION
 
-makeManageDataOp :: String -> Maybe String -> Operation
-makeManageDataOp name value =
+makeManageDataOperation :: String -> Maybe String -> Operation
+makeManageDataOperation name value =
     makeOperationGeneric2 OperationBody'MANAGE_DATA ManageDataOp (XDR.boundLengthArray $ BC.pack name) ((XDR.boundLengthArray.BC.pack) `fmap` value)

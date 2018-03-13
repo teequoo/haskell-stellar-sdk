@@ -2,7 +2,14 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 
-module Network.Stellar.Horizon where
+module Network.Stellar.Horizon
+    ( HorizonServer
+    , publicHorizon
+    , testHorizon
+    , httpServer
+    , httpsServer
+    )
+where
 
 import Data.Text
 import Network.HTTP.Req (Url, Scheme(..), http, https)

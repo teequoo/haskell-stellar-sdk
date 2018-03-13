@@ -1,6 +1,15 @@
 {-# LANGUAGE DataKinds #-}
 
-module Network.Stellar.Builder where
+module Network.Stellar.Builder
+    ( TransactionBuilder(..)
+    , transactionBuilder
+    , addOperation
+    , setTimeBounds
+    , buildWithFee
+    , build
+    , sign
+    )
+where
 
 import qualified Crypto.Sign.Ed25519 as C
 import qualified Data.ByteString as B

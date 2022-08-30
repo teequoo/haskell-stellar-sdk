@@ -7,6 +7,7 @@ module Network.Stellar.Builder
     , setTimeBounds
     , buildWithFee
     , build
+    , toEnvelope
     , sign
     )
 where
@@ -14,13 +15,18 @@ where
 import qualified Crypto.Sign.Ed25519 as C
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
+import           Data.Digest.Pure.SHA (bytestringDigest, sha256)
+import qualified Data.Vector as Vector
 import           Data.Word (Word64)
+
+import qualified Network.ONCRPC.XDR as XDR
+import           Network.ONCRPC.XDR.Array (boundLengthArrayFromList,
+                                           emptyBoundedLengthArray,
+                                           lengthArray', unLengthArray,
+                                           unsafeLengthArray)
 import           Network.Stellar.Keypair
 import           Network.Stellar.Network
 import           Network.Stellar.TransactionXdr
-import           Network.ONCRPC.XDR.Array (lengthArray', boundLengthArrayFromList)
-import qualified Network.ONCRPC.XDR as XDR
-import           Data.Digest.Pure.SHA (sha256, bytestringDigest)
 
 baseFee :: Uint32
 baseFee = 100
@@ -60,15 +66,39 @@ tailN n bs = B.drop ((B.length bs) - n) bs
 keyToHint :: KeyPair -> SignatureHint
 keyToHint (KeyPair public _ _) = lengthArray' $ tailN 4 $ XDR.xdrSerialize $ buildAccount public
 
-sign :: Network -> Transaction -> [KeyPair] -> TransactionEnvelope
-sign nId tx keys = TransactionEnvelope tx decoratedSignatures
-    where
-        envelopeTypeXdr = XDR.xdrSerialize ENVELOPE_TYPE_TX
-        txXdr = XDR.xdrSerialize tx
-        signatureBase = B.concat [nId,envelopeTypeXdr,txXdr]
-        hash = LB.toStrict $ bytestringDigest $ sha256 $ LB.fromStrict signatureBase
-        signatures :: [Signature]
-        signatures = map (\key -> boundLengthArrayFromList $ B.unpack $ C.unSignature $ C.dsign (kpPrivateKey key) hash) keys
-        decoratedSignatures :: XDR.Array 20 DecoratedSignature
-        decoratedSignatures = boundLengthArrayFromList $
-            zipWith (\sig key -> DecoratedSignature (keyToHint key) sig) signatures keys
+toEnvelope :: Transaction -> TransactionEnvelope
+toEnvelope tx = TransactionEnvelope tx emptyBoundedLengthArray
+
+data SignError = TooManySignatures
+
+sign
+    :: Network
+    -> TransactionEnvelope
+    -> [KeyPair]
+    -> Either SignError TransactionEnvelope
+sign nId (TransactionEnvelope tx oldSignatures) newKeys =
+    TransactionEnvelope tx <$> appendSignatures
+  where
+    envelopeTypeXdr = XDR.xdrSerialize ENVELOPE_TYPE_TX
+    txXdr = XDR.xdrSerialize tx
+    signatureBase = B.concat [nId, envelopeTypeXdr, txXdr]
+    hash = LB.toStrict $ bytestringDigest $ sha256 $ LB.fromStrict signatureBase
+
+    signature :: KeyPair -> Signature
+    signature key =
+        boundLengthArrayFromList $
+        B.unpack $ C.unSignature $ C.dsign (kpPrivateKey key) hash
+
+    oldSignatures' = unLengthArray oldSignatures
+
+    appendSignatures :: Either SignError (XDR.Array 20 DecoratedSignature)
+    appendSignatures
+        | Vector.length oldSignatures' + length newKeys <= 20 =
+            Right $
+            unsafeLengthArray $
+                oldSignatures'
+                <> Vector.fromList
+                    [ DecoratedSignature (keyToHint key) (signature key)
+                    | key <- newKeys
+                    ]
+        | otherwise = Left TooManySignatures

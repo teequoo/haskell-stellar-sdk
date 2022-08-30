@@ -10,6 +10,8 @@ module Network.Stellar.Builder
     , toEnvelope
     , sign
     , verify
+    , buildAccount
+    , viewAccount
     )
 where
 
@@ -43,7 +45,12 @@ data TransactionBuilder = TransactionBuilder
                     }
 
 buildAccount :: C.PublicKey -> AccountID
-buildAccount key = PublicKey'PUBLIC_KEY_TYPE_ED25519 $ lengthArray' $ C.unPublicKey key
+buildAccount (PublicKey key) =
+    PublicKey'PUBLIC_KEY_TYPE_ED25519 $ lengthArray' key
+
+viewAccount :: AccountID -> C.PublicKey
+viewAccount (PublicKey'PUBLIC_KEY_TYPE_ED25519 key) =
+    PublicKey $ unLengthArray key
 
 transactionBuilder :: C.PublicKey -> SequenceNumber -> TransactionBuilder
 transactionBuilder acc seqNum = TransactionBuilder acc seqNum Nothing Nothing []
@@ -55,8 +62,17 @@ setTimeBounds :: TransactionBuilder -> Word64 -> Word64 -> TransactionBuilder
 setTimeBounds tb mintime maxtime = tb{ tbTimeBounds = Just $ TimeBounds mintime maxtime }
 
 buildWithFee :: Uint32 -> TransactionBuilder -> Transaction
-buildWithFee fee (TransactionBuilder acc seqNum bounds memo ops) = Transaction (buildAccount acc) (fee * fromIntegral (length ops)) seqNum bounds mm (boundLengthArrayFromList ops) 0
-    where mm = fromMaybe Memo'MEMO_NONE memo
+buildWithFee fee (TransactionBuilder acc seqNum bounds memo ops) =
+    Transaction
+        (buildAccount acc)
+        (fee * fromIntegral (length ops))
+        seqNum
+        bounds
+        mm
+        (boundLengthArrayFromList ops)
+        0
+  where
+    mm = fromMaybe Memo'MEMO_NONE memo
 
 build :: TransactionBuilder -> Transaction
 build = buildWithFee baseFee
@@ -65,7 +81,8 @@ tailN :: Int -> B.ByteString -> B.ByteString
 tailN n bs = B.drop (B.length bs - n) bs
 
 keyToHint :: KeyPair -> SignatureHint
-keyToHint (KeyPair public _ _) = lengthArray' $ tailN 4 $ XDR.xdrSerialize $ buildAccount public
+keyToHint (KeyPair public _ _) =
+    lengthArray' $ tailN 4 $ XDR.xdrSerialize $ buildAccount public
 
 toEnvelope :: Transaction -> TransactionEnvelope
 toEnvelope tx = TransactionEnvelope tx emptyBoundedLengthArray

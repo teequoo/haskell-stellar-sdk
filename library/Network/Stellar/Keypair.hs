@@ -74,17 +74,12 @@ decodePrivate' = decodeKey' EncodingSeed
 decodeKey :: EncodingVersion -> T.Text -> Maybe B.ByteString
 decodeKey version key = do
     keyBlob <- either (const Nothing) Just $ decodeBase32 $ encodeUtf8 key
-    decodeKeyBlob version keyBlob
-
-decodeKeyBlob :: EncodingVersion -> B.ByteString -> Maybe B.ByteString
-decodeKeyBlob version keyBlob =
-    keyData <$ guard (versionCheck && checksumCheck)
-  where
-    (payload, checksum) = B.splitAt (B.length keyBlob - 2) keyBlob
-    keyData = B.tail payload
-
-    versionCheck = B.head keyBlob == versionByteName version
-    checksumCheck = crc16XmodemLE payload == checksum
+    let (payload, checksum) = B.splitAt (B.length keyBlob - 2) keyBlob
+    (versionByte, keyData) <- B.uncons payload
+    let versionCheck = versionByte == versionByteName version
+        checksumCheck = crc16XmodemLE payload == checksum
+    guard (versionCheck && checksumCheck)
+    pure keyData
 
 decodeKey' :: EncodingVersion -> T.Text -> B.ByteString
 decodeKey' version key =

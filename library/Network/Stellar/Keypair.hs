@@ -3,19 +3,23 @@ module Network.Stellar.Keypair
     ( KeyPair(..)
     , generateKeypair
     , fromPrivateKey
+    , fromPrivateKey'
     , signatureHint
     , encodePublic
     , decodePublic
+    , decodePublic'
     , encodePrivate
     , decodePrivate
+    , decodePrivate'
     )where
 
-import Crypto.Random.DRBG
-import Crypto.Sign.Ed25519
+import           Control.Monad (guard)
+import           Crypto.Random.DRBG
+import           Crypto.Sign.Ed25519
 import qualified Data.Base32String.Default as B32
 import           Data.Bits
 import qualified Data.ByteString as B
-import           Data.Maybe (fromJust)
+import           Data.Maybe (fromJust, fromMaybe)
 import qualified Data.Text as T
 import           Data.Word (Word8, Word16)
 
@@ -38,8 +42,11 @@ fromSeed :: B.ByteString -> KeyPair
 fromSeed seed = KeyPair public private seed
     where (public, private) = fromJust $ createKeypairFromSeed_ seed
 
-fromPrivateKey :: T.Text -> KeyPair
-fromPrivateKey = fromSeed.decodePrivate
+fromPrivateKey :: T.Text -> Maybe KeyPair
+fromPrivateKey = fmap fromSeed . decodePrivate
+
+fromPrivateKey' :: T.Text -> KeyPair
+fromPrivateKey' = fromSeed . decodePrivate'
 
 signatureHint :: KeyPair -> B.ByteString
 signatureHint = (B.drop 28).unPublicKey.kpPublicKey
@@ -47,30 +54,43 @@ signatureHint = (B.drop 28).unPublicKey.kpPublicKey
 
 encodePublic :: B.ByteString -> T.Text
 encodePublic = encodeKey EncodingAccount
+
 encodePrivate :: B.ByteString -> T.Text
 encodePrivate = encodeKey EncodingSeed
-decodePublic :: T.Text -> B.ByteString
+
+decodePublic :: T.Text -> Maybe B.ByteString
 decodePublic = decodeKey EncodingAccount
-decodePrivate :: T.Text -> B.ByteString
+
+decodePublic' :: T.Text -> B.ByteString
+decodePublic' = decodeKey' EncodingAccount
+
+decodePrivate :: T.Text -> Maybe B.ByteString
 decodePrivate = decodeKey EncodingSeed
 
-decodeKey :: EncodingVersion -> T.Text -> B.ByteString
-decodeKey version key = if not versionCheck || not checksumCheck then (error $ "Decoding key failed " ++ T.unpack key) else keyData
-    where
-        decoded = B32.toBytes $ B32.fromText key
-        payload = B.take ((B.length decoded) - 2) decoded
-        keyData = B.drop 1 payload
-        checksum = B.drop ((B.length decoded) - 2) decoded
+decodePrivate' :: T.Text -> B.ByteString
+decodePrivate' = decodeKey' EncodingSeed
 
-        versionCheck = (decoded `B.index` 0) == versionByteName version
-        checksumCheck = (crc16XmodemLE payload) == checksum
+decodeKey :: EncodingVersion -> T.Text -> Maybe B.ByteString
+decodeKey version key = keyData <$ guard (versionCheck && checksumCheck) where
+    decoded = B32.toBytes $ B32.fromText key
+    payload = B.take (B.length decoded - 2) decoded
+    keyData = B.drop 1 payload
+    checksum = B.drop (B.length decoded - 2) decoded
+
+    versionCheck = (decoded `B.index` 0) == versionByteName version
+    checksumCheck = crc16XmodemLE payload == checksum
+
+decodeKey' :: EncodingVersion -> T.Text -> B.ByteString
+decodeKey' version key =
+    fromMaybe (error $ "Decoding key failed " ++ T.unpack key) $
+    decodeKey version key
 
 data EncodingVersion = EncodingAccount | EncodingSeed | EncodingPreAuthTx | EncodingSha256Hash
 
 versionByteName :: EncodingVersion -> Word8
-versionByteName EncodingAccount = 48
-versionByteName EncodingSeed = 144
-versionByteName EncodingPreAuthTx = 152
+versionByteName EncodingAccount    = 48
+versionByteName EncodingSeed       = 144
+versionByteName EncodingPreAuthTx  = 152
 versionByteName EncodingSha256Hash = 184
 
 encodeKey :: EncodingVersion -> B.ByteString -> T.Text

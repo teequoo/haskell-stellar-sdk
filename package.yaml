@@ -49,6 +49,7 @@ tests:
     - base
     - bytestring
     - hspec
+    - HUnit
     - stellar-sdk
     - tasty
     - tasty-hspec

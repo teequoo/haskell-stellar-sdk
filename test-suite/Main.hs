@@ -1,25 +1,29 @@
 {-# LANGUAGE OverloadedStrings #-}
--- Tasty makes it easy to test your code. It is a test framework that can
--- combine many different types of tests into one suite. See its website for
--- help: <http://documentup.com/feuerbach/tasty>.
-import qualified Test.Tasty
--- Hspec is one of the providers for Tasty. It provides a nice syntax for
--- writing tests. Its website has more info: <https://hspec.github.io>.
-import           Test.Tasty.Hspec
-import           Test.Hspec
+
 import qualified Data.ByteString as B
+import           Data.Foldable (for_)
+import           Test.Hspec
+import           Test.HUnit (assertFailure)
+import           Test.Tasty (defaultMain)
+import           Test.Tasty.Hspec (testSpec)
+
+import           Network.ONCRPC.XDR
 import           Network.Stellar.Asset
+import           Network.Stellar.Builder
 import           Network.Stellar.Keypair
+import           Network.Stellar.Network
+import           Network.Stellar.TransactionXdr
 
 main :: IO ()
 main = do
     test <- testSpec "stellar-sdk" spec
-    Test.Tasty.defaultMain test
+    defaultMain test
 
 spec :: Spec
 spec = do
     keypairSpec
     assetSpec
+    signVerifySpec
 
 keypairSpec :: Spec
 keypairSpec = parallel $ describe "Network.Stellar.Keypair" $ do
@@ -45,3 +49,23 @@ assetSpec = parallel $ describe "Network.Stellar.Asset" $ do
     it "will throw an error when the issuer is invalid" $ do
         let asset = AssetAlphaNum4 "ABCD" "GC36QGNVSFIRWY4PYLBNJF7MBZAWW2SY54UPJNVCNUKHIRALHMUNS"
         toXdrAsset asset `shouldBe` Nothing
+
+signVerifySpec :: Spec
+signVerifySpec =
+    describe "Network.Stellar.Transaction" $ do
+        it "signs and verifies the signature" $ do
+            let secret =
+                    "SCBBN2555NLWYMTRZ6ZT3HOBFXLXVWM63QAYKJOF4GVGMDJLIJVW7UAH"
+                keyPair = fromPrivateKey' secret
+                public = kpPublicKey keyPair
+                tx = build $ transactionBuilder public 59
+            TransactionEnvelope tx' signaturesLA <-
+                assertRight $ sign testNetwork (toEnvelope tx) [keyPair]
+            tx `shouldBe` tx'
+            let signatures = unLengthArray signaturesLA
+            length signatures `shouldBe` 1
+            for_ signatures $ \signature ->
+                verify testNetwork tx public signature `shouldBe` True
+
+assertRight :: (HasCallStack, Show a) => Either a b -> IO b
+assertRight = either (assertFailure . show) pure

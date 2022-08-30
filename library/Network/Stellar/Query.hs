@@ -1,3 +1,5 @@
+{-# OPTIONS -Wno-orphans #-} -- MonandHttp IO
+
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
 

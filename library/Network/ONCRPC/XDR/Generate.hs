@@ -46,7 +46,7 @@ instDecl c t = HS.InstDecl () Nothing
 dataDecl :: String -> [HS.ConDecl ()] -> [String] -> HS.Decl ()
 dataDecl n con derive = HS.DataDecl () (HS.DataType ()) Nothing (HS.DHead () $ HS.name n)
   (map (HS.QualConDecl () Nothing Nothing) con)
-  (Just $ HS.Deriving () $ map (HS.IRule () Nothing Nothing . HS.IHCon () . ("Prelude"!)) derive)
+  [HS.Deriving () Nothing $ map (HS.IRule () Nothing Nothing . HS.IHCon () . ("Prelude"!)) derive]
 
 constantType :: HS.Type ()
 constantType = HS.TyForall ()

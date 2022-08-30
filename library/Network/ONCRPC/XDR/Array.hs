@@ -50,7 +50,7 @@ class HasLength a where
   compareLength = compare . length
 
 class (Monoid a, HasLength a) => Array a where
-  type Elem a :: *
+  type Elem a
   take :: Int -> a -> a
   replicate :: Int -> Elem a -> a
   fromList :: [Elem a] -> a

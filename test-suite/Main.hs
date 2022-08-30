@@ -3,7 +3,7 @@
 import qualified Data.ByteString as B
 import           Data.Foldable (for_)
 import           Test.Hspec
-import           Test.HUnit (assertFailure)
+import           Test.HUnit (assert, assertFailure)
 import           Test.Tasty (defaultMain)
 import           Test.Tasty.Hspec (testSpec)
 
@@ -64,8 +64,9 @@ signVerifySpec =
             tx `shouldBe` tx'
             let signatures = unLengthArray signaturesLA
             length signatures `shouldBe` 1
-            for_ signatures $ \signature ->
-                verify testNetwork tx public signature `shouldBe` True
+            for_ signatures $ \signature -> do
+                assert $ verify testNetwork tx public signature
+                assert $ not $ verify publicNetwork tx public signature
 
 assertRight :: (HasCallStack, Show a) => Either a b -> IO b
 assertRight = either (assertFailure . show) pure

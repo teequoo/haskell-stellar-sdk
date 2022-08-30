@@ -1,4 +1,4 @@
-resolver: lts-13.30
+resolver: lts-14.27
 
 extra-deps:
   - DRBG-0.5.5

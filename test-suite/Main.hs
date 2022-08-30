@@ -6,6 +6,7 @@ import qualified Test.Tasty
 -- Hspec is one of the providers for Tasty. It provides a nice syntax for
 -- writing tests. Its website has more info: <https://hspec.github.io>.
 import           Test.Tasty.Hspec
+import           Test.Hspec
 import           Control.Exception (evaluate)
 import           Crypto.Sign.Ed25519
 import qualified Data.ByteString as B

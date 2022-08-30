@@ -5,11 +5,13 @@
 
 module Network.Stellar.Query where
 
+import Prelude hiding (lookup)
+
 import           Control.Exception (throwIO)
 import qualified Crypto.Sign.Ed25519 as C
 import           Data.Aeson (Value(Object, String), FromJSON)
+import           Data.Aeson.KeyMap (lookup)
 import qualified Data.ByteString.Base64 as B64
-import           Data.HashMap.Strict ((!))
 import qualified Data.Text as T
 import           Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import           Data.Word (Word64)
@@ -41,25 +43,29 @@ getSequenceNumber server acc = do
     response <- query server ["accounts", encodePublic $ C.unPublicKey acc]
     case response of
         Object hm ->
-            case hm ! (T.pack "sequence") of
-                String s -> return $ fromIntegral $ (read $ T.unpack s :: Integer)
-                x -> error $ "Value is not a number " ++ (show x)
-        _ -> error $ "Sequence number response is not an object " ++ (show response)
+            case lookup "sequence" hm of
+                Just (String s) ->
+                    pure $ fromIntegral (read $ T.unpack s :: Integer)
+                Just x -> fail $ "Value is not a number " ++ show x
+                Nothing -> fail "No sequence in account"
+        _ -> fail $ "Sequence number response is not an object " ++ show response
 
 submitTransaction :: HorizonServer scheme -> TX.TransactionEnvelope -> IO TX.TransactionResult
 submitTransaction server tx = do
-    response <- (postWithBody server ["transactions"] ("tx", decodeUtf8 $ B64.encode $ XDR.xdrSerialize tx))
-    putStrLn $ show response
+    response <-
+        postWithBody
+            server
+            ["transactions"]
+            ("tx", decodeUtf8 $ B64.encode $ XDR.xdrSerialize tx)
     case response of
         Object hm ->
-            case hm ! (T.pack "result_xdr") of
-                String t -> return $ fromRight $ XDR.xdrDeserialize $ fromRight $ B64.decode $ encodeUtf8 t
-                x -> error $ "Value is not a string " ++ (show x)
-        _ -> error $ "Transaction response is not an object " ++ (show response)
-
-fromRight :: Either a b -> b
-fromRight (Right x) = x
-fromRight _         = error "Data.Strict.Either.fromRight: Left"
+            case lookup "result_xdr" hm of
+                Just (String t) ->
+                    either fail pure $
+                    XDR.xdrDeserialize =<< B64.decode (encodeUtf8 t)
+                Just x -> fail $ "Value is not a string " ++ show x
+                Nothing -> fail "No result_xdr in transaction"
+        _ -> fail $ "Transaction response is not an object " ++ show response
 
 type HorizonQuery = ([T.Text], [(T.Text, T.Text)])
 runQuery :: HorizonServer scheme -> HorizonQuery -> IO Value

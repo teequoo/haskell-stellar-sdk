@@ -6,7 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
--- {-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 module Network.ONCRPC.XDR.Array
   ( KnownNat
   , KnownOrdering
@@ -36,7 +36,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.List as List
 import           Data.Maybe (fromMaybe, fromJust)
-import           Data.Monoid (Monoid, (<>))
 import           Data.Proxy (Proxy(..))
 import           Data.String (IsString(..))
 import qualified Data.Vector as V

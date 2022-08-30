@@ -1,4 +1,5 @@
-resolver: lts-14.27
+resolver: lts-17.2
 
 extra-deps:
+  - cipher-aes128-0.7.0.6
   - DRBG-0.5.5

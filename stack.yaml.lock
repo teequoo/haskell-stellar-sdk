@@ -6,6 +6,13 @@
 packages:
 - completed:
     pantry-tree:
+      sha256: c6e97f26dcb0975380131fc0899a2a4d44c5b1adefcfa471fa9008b68300ffac
+      size: 1232
+    hackage: cipher-aes128-0.7.0.6@sha256:6efdf4af08772b6c99e47ec7586bdc26deb33d8ca797c64affcb4bd7aaae9884,3413
+  original:
+    hackage: cipher-aes128-0.7.0.6
+- completed:
+    pantry-tree:
       sha256: 586ee2257b255cb7f2a3663711199f9de9e70445ce7cb192f5af07dd66eadac2
       size: 896
     hackage: DRBG-0.5.5@sha256:3b8040bed356e2b63927a27fb6d5adbd19d70c9e1d1bb66111bbeb33e56900eb,2259
@@ -13,7 +20,7 @@ packages:
     hackage: DRBG-0.5.5
 snapshots:
 - completed:
-    sha256: 7ea31a280c56bf36ff591a7397cc384d0dff622e7f9e4225b47d8980f019a0f0
-    size: 524996
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/14/27.yaml
-  original: lts-14.27
+    sha256: 92b1a17e31d0a978fca4bf270305d4d1dd8092271bf60eafbc9349c890854026
+    size: 563099
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/17/2.yaml
+  original: lts-17.2

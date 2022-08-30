@@ -44,11 +44,13 @@ reidentOps ReidentOptions{..} scope = ReidentOps
   , reidentProcedure = joinField reidentJoinProcedure
   , reidentUnique = unique
   } where
-  toUpperPrefix p s@(~(h:t))
+  toUpperPrefix _ "" = error "empty upper prefix"
+  toUpperPrefix p s@(h:t)
     | isUpper h = s
     | null p = toUpper h : t
     | otherwise = p ++ s
-  toLowerPrefix p s@(~(h:t))
+  toLowerPrefix _ "" = error "empty lower prefix"
+  toLowerPrefix p s@(h:t)
     | isLower h = s
     | null p = toLower h : t
     | otherwise = p ++ s
@@ -64,9 +66,9 @@ declaration ops n (Declaration m t) = Declaration (reidentLower ops nm) (typeDes
   nm = reidentField ops n m
 
 typeSpecifier :: ReidentOps -> String -> TypeSpecifier -> TypeSpecifier
-typeSpecifier ops _ (TypeEnum (EnumBody el)) = TypeEnum $ 
+typeSpecifier ops _ (TypeEnum (EnumBody el)) = TypeEnum $
   EnumBody $ map (first $ reidentUnique ops) el
-typeSpecifier ops n (TypeStruct (StructBody dl)) = TypeStruct $ 
+typeSpecifier ops n (TypeStruct (StructBody dl)) = TypeStruct $
   StructBody $ map (declaration ops n) dl
 typeSpecifier ops n (TypeUnion (UnionBody d cl o)) = TypeUnion $
   UnionBody (decl d) (map (second arm) cl) (arm <$> o) where

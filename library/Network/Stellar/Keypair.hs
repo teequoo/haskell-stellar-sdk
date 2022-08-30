@@ -31,7 +31,7 @@ instance Show KeyPair where
 generateKeypair :: IO KeyPair
 generateKeypair = do
     gen <- newGenIO :: IO CtrDRBG
-    let Right (randomBytes, _) = genBytes 32 gen
+    Right (randomBytes, _) <- pure $ genBytes 32 gen
     return $ fromSeed randomBytes
 
 fromSeed :: B.ByteString -> KeyPair

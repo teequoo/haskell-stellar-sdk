@@ -63,7 +63,7 @@ addScope (Definition i b) = do
     (Nothing, s') -> P.putState s'
     _ -> fail $ "duplicate identifier: " ++ show i
 
-checkInt :: (Monad m, Integral n) => Integer -> m n
+checkInt :: (MonadFail m, Integral n) => Integer -> m n
 checkInt n
   | n == toInteger n' = return n'
   | otherwise = fail "invalid constant"
@@ -259,7 +259,7 @@ procedure = Procedure
   <*> identifier
   <*> PT.parens token (catMaybes <$> PT.commaSep1 token optionalType)
   <*> (PT.symbol token "=" *> value)
-  where 
+  where
   optionalType :: Parser (Maybe TypeSpecifier)
   optionalType =
         Just <$> typeSpecifier

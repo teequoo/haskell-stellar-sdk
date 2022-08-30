@@ -16,7 +16,7 @@ module Network.ONCRPC.XDR.Serial
   , xdrDiscriminant
   , xdrPutUnion
   , xdrGetUnion
-  
+
   , xdrSerialize
   , xdrSerializeLazy
   , xdrDeserialize
@@ -108,7 +108,7 @@ instance XDREnum XDR.Bool where
 
 -- |An XDR type defined with \"union\"
 class (XDR a, XDREnum (XDRDiscriminant a)) => XDRUnion a where
-  type XDRDiscriminant a :: *
+  type XDRDiscriminant a
   -- |Split a union into its discriminant and body generator.
   xdrSplitUnion :: a -> (XDR.Int, S.Put)
   -- |Get the body of a union based on its discriminant.
@@ -237,7 +237,7 @@ instance KnownNat n => XDR (LengthArray 'LT n BS.ByteString) where
   xdrPut o = do
     xdrPut l
     xdrPutByteString l b
-    where 
+    where
     l = bsLength b
     b = unLengthArray o
   xdrGet = xdrGetBoundedArray xdrGetByteString

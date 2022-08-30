@@ -1,13 +1,17 @@
 -- | An example module.
 module Network.Stellar.Keypair
     ( KeyPair(..)
+    , PublicKey(..)
     , generateKeypair
     , fromPrivateKey
     , fromPrivateKey'
     , signatureHint
     , encodePublic
+    , encodePublicKey
     , decodePublic
+    , decodePublicKey
     , decodePublic'
+    , decodePublicKey'
     , encodePrivate
     , decodePrivate
     , decodePrivate'
@@ -56,14 +60,23 @@ signatureHint = (B.drop 28).unPublicKey.kpPublicKey
 encodePublic :: B.ByteString -> T.Text
 encodePublic = encodeKey EncodingAccount
 
+encodePublicKey :: PublicKey -> T.Text
+encodePublicKey = encodePublic . unPublicKey
+
 encodePrivate :: B.ByteString -> T.Text
 encodePrivate = encodeKey EncodingSeed
 
 decodePublic :: T.Text -> Maybe B.ByteString
 decodePublic = decodeKey EncodingAccount
 
+decodePublicKey :: T.Text -> Maybe PublicKey
+decodePublicKey = fmap PublicKey . decodeKey EncodingAccount
+
 decodePublic' :: T.Text -> B.ByteString
 decodePublic' = decodeKey' EncodingAccount
+
+decodePublicKey' :: T.Text -> PublicKey
+decodePublicKey' = PublicKey . decodePublic'
 
 decodePrivate :: T.Text -> Maybe B.ByteString
 decodePrivate = decodeKey EncodingSeed

@@ -48,7 +48,6 @@ tests:
     dependencies:
     - base
     - bytestring
-    - ed25519
     - hspec
     - stellar-sdk
     - tasty

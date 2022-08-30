@@ -24,7 +24,7 @@ library:
   dependencies:
   - base
   - ed25519
-  - base32string
+  - base32
   - base64-bytestring
   - bytestring
   - vector

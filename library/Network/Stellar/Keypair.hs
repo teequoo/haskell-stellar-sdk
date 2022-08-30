@@ -16,11 +16,12 @@ module Network.Stellar.Keypair
 import           Control.Monad (guard)
 import           Crypto.Random.DRBG
 import           Crypto.Sign.Ed25519
-import qualified Data.Base32String.Default as B32
 import           Data.Bits
 import qualified Data.ByteString as B
+import           Data.ByteString.Base32 (decodeBase32, encodeBase32)
 import           Data.Maybe (fromJust, fromMaybe)
 import qualified Data.Text as T
+import           Data.Text.Encoding (encodeUtf8)
 import           Data.Word (Word8, Word16)
 
 data KeyPair = KeyPair
@@ -71,13 +72,18 @@ decodePrivate' :: T.Text -> B.ByteString
 decodePrivate' = decodeKey' EncodingSeed
 
 decodeKey :: EncodingVersion -> T.Text -> Maybe B.ByteString
-decodeKey version key = keyData <$ guard (versionCheck && checksumCheck) where
-    decoded = B32.toBytes $ B32.fromText key
-    payload = B.take (B.length decoded - 2) decoded
-    keyData = B.drop 1 payload
-    checksum = B.drop (B.length decoded - 2) decoded
+decodeKey version key = do
+    keyBlob <- either (const Nothing) Just $ decodeBase32 $ encodeUtf8 key
+    decodeKeyBlob version keyBlob
 
-    versionCheck = (decoded `B.index` 0) == versionByteName version
+decodeKeyBlob :: EncodingVersion -> B.ByteString -> Maybe B.ByteString
+decodeKeyBlob version keyBlob =
+    keyData <$ guard (versionCheck && checksumCheck)
+  where
+    (payload, checksum) = B.splitAt (B.length keyBlob - 2) keyBlob
+    keyData = B.tail payload
+
+    versionCheck = B.head keyBlob == versionByteName version
     checksumCheck = crc16XmodemLE payload == checksum
 
 decodeKey' :: EncodingVersion -> T.Text -> B.ByteString
@@ -94,7 +100,7 @@ versionByteName EncodingPreAuthTx  = 152
 versionByteName EncodingSha256Hash = 184
 
 encodeKey :: EncodingVersion -> B.ByteString -> T.Text
-encodeKey version key = B32.toText $ B32.fromBytes $ payload `B.append` checksum
+encodeKey version key = encodeBase32 $ payload `B.append` checksum
     where
         versionByte = versionByteName version
         payload = versionByte `B.cons` key

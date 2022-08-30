@@ -70,6 +70,7 @@ toEnvelope :: Transaction -> TransactionEnvelope
 toEnvelope tx = TransactionEnvelope tx emptyBoundedLengthArray
 
 data SignError = TooManySignatures
+    deriving Show
 
 sign
     :: Network

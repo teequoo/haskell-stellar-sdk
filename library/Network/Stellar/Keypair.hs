@@ -1,7 +1,7 @@
 -- | An example module.
 module Network.Stellar.Keypair
     ( KeyPair(..)
-    , PublicKey(..)
+    , PublicKey
     , generateKeypair
     , fromPrivateKey
     , fromPrivateKey'

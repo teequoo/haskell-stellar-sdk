@@ -45,12 +45,12 @@ data TransactionBuilder = TransactionBuilder
                     }
 
 buildAccount :: C.PublicKey -> AccountID
-buildAccount (PublicKey key) =
+buildAccount (C.PublicKey key) =
     PublicKey'PUBLIC_KEY_TYPE_ED25519 $ lengthArray' key
 
 viewAccount :: AccountID -> C.PublicKey
 viewAccount (PublicKey'PUBLIC_KEY_TYPE_ED25519 key) =
-    PublicKey $ unLengthArray key
+    C.PublicKey $ unLengthArray key
 
 transactionBuilder :: C.PublicKey -> SequenceNumber -> TransactionBuilder
 transactionBuilder acc seqNum = TransactionBuilder acc seqNum Nothing Nothing []

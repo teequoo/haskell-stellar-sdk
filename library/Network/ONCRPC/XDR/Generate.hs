@@ -271,7 +271,7 @@ generateModule GenerateOptions{..} n b = do
 generate :: MonadFail m => GenerateOptions -> String -> BSLC.ByteString -> m String
 generate opts n s = do
   m <- generateModule opts n s
-  return $ "-- |Generated from " ++ n ++ " by <https://github.com/dylex/oncrpc hsrpcgen>\n"
+  return $ "-- |Generated from " ++ n ++ " by <https://github.com/dylex/haskell-nfs/tree/master/rpc hsrpcgen>\n"
     ++ prettyPrintWithMode defaultMode
       { classIndent   = 2
       , doIndent      = 2

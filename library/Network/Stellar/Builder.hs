@@ -23,6 +23,7 @@ import           Data.Maybe (fromMaybe)
 import qualified Data.Vector as Vector
 import           Data.Word (Word64)
 
+import           Network.ONCRPC.XDR (XDR, xdrSerialize)
 import qualified Network.ONCRPC.XDR as XDR
 import           Network.ONCRPC.XDR.Array (boundLengthArray,
                                            boundLengthArrayFromList,
@@ -39,7 +40,7 @@ baseFee = 100
 data TransactionBuilder = TransactionBuilder
                     { tbSourceAccount  :: C.PublicKey
                     , tbSequenceNumber :: SequenceNumber
-                    , tbTimeBounds     :: Maybe TimeBounds
+                    , tbPreconditions  :: Preconditions
                     , tbMemo           :: Maybe Memo
                     , tbOperations     :: [Operation]
                     }
@@ -48,26 +49,34 @@ buildAccount :: C.PublicKey -> AccountID
 buildAccount (C.PublicKey key) =
     PublicKey'PUBLIC_KEY_TYPE_ED25519 $ lengthArray' key
 
+buildMuxedAccount :: C.PublicKey -> MuxedAccount
+buildMuxedAccount (C.PublicKey key) =
+    MuxedAccount'KEY_TYPE_ED25519 $ lengthArray' key
+
 viewAccount :: AccountID -> C.PublicKey
 viewAccount (PublicKey'PUBLIC_KEY_TYPE_ED25519 key) =
     C.PublicKey $ unLengthArray key
 
 transactionBuilder :: C.PublicKey -> SequenceNumber -> TransactionBuilder
-transactionBuilder acc seqNum = TransactionBuilder acc seqNum Nothing Nothing []
+transactionBuilder acc seqNum =
+    TransactionBuilder acc seqNum Preconditions'PRECOND_NONE Nothing []
 
 addOperation :: TransactionBuilder -> Operation -> TransactionBuilder
 addOperation tb op = tb{ tbOperations = tbOperations tb ++ [op] }
 
 setTimeBounds :: TransactionBuilder -> Word64 -> Word64 -> TransactionBuilder
-setTimeBounds tb mintime maxtime = tb{ tbTimeBounds = Just $ TimeBounds mintime maxtime }
+setTimeBounds tb mintime maxtime =
+    tb  { tbPreconditions =
+            Preconditions'PRECOND_TIME $ TimeBounds mintime maxtime
+        }
 
 buildWithFee :: Uint32 -> TransactionBuilder -> Transaction
-buildWithFee fee (TransactionBuilder acc seqNum bounds memo ops) =
+buildWithFee fee (TransactionBuilder acc seqNum precond memo ops) =
     Transaction
-        (buildAccount acc)
+        (buildMuxedAccount acc)
         (fee * fromIntegral (length ops))
         seqNum
-        bounds
+        precond
         mm
         (boundLengthArrayFromList ops)
         0
@@ -82,10 +91,12 @@ tailN n bs = B.drop (B.length bs - n) bs
 
 keyToHint :: KeyPair -> SignatureHint
 keyToHint (KeyPair public _ _) =
-    lengthArray' $ tailN 4 $ XDR.xdrSerialize $ buildAccount public
+    lengthArray' $ tailN 4 $ xdrSerialize $ buildAccount public
 
 toEnvelope :: Transaction -> TransactionEnvelope
-toEnvelope tx = TransactionEnvelope tx emptyBoundedLengthArray
+toEnvelope tx =
+    TransactionEnvelope'ENVELOPE_TYPE_TX $
+    TransactionV1Envelope tx emptyBoundedLengthArray
 
 data SignError = TooManySignatures
     deriving Show
@@ -95,39 +106,62 @@ sign
     -> TransactionEnvelope
     -> [KeyPair]
     -> Either SignError TransactionEnvelope
-sign nId (TransactionEnvelope tx oldSignatures) newKeys =
-    TransactionEnvelope tx <$> appendSignatures
+sign nId envelope newKeys =
+    case envelope of
+        TransactionEnvelope'ENVELOPE_TYPE_TX_V0
+                (TransactionV0Envelope tx signatures) ->
+            TransactionEnvelope'ENVELOPE_TYPE_TX_V0 . TransactionV0Envelope tx
+            <$> appendSignatures tx signatures
+        TransactionEnvelope'ENVELOPE_TYPE_TX
+                (TransactionV1Envelope tx signatures) ->
+            TransactionEnvelope'ENVELOPE_TYPE_TX . TransactionV1Envelope tx
+            <$> appendSignatures tx signatures
+        TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP
+                (FeeBumpTransactionEnvelope tx signatures) ->
+            TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP
+                . FeeBumpTransactionEnvelope tx
+            <$> appendSignatures tx signatures
   where
-    signature :: KeyPair -> Signature
-    signature key =
+    signature :: XDR tx => tx -> KeyPair -> Signature
+    signature tx key =
         boundLengthArray $
         C.unSignature $ C.dsign (kpPrivateKey key) $ transactionHash nId tx
 
-    oldSignatures' = unLengthArray oldSignatures
-
-    appendSignatures :: Either SignError (XDR.Array 20 DecoratedSignature)
     appendSignatures
+        :: XDR tx
+        => tx
+        -> XDR.Array 20 DecoratedSignature
+        -> Either SignError (XDR.Array 20 DecoratedSignature)
+    appendSignatures tx oldSignatures
         | Vector.length oldSignatures' + length newKeys <= 20 =
             Right $
             unsafeLengthArray $
                 oldSignatures'
                 <> Vector.fromList
-                    [ DecoratedSignature (keyToHint key) (signature key)
+                    [ DecoratedSignature (keyToHint key) (signature tx key)
                     | key <- newKeys
                     ]
         | otherwise = Left TooManySignatures
+      where
+        oldSignatures' = unLengthArray oldSignatures
 
 envelopeTypeXdr :: B.ByteString
-envelopeTypeXdr = XDR.xdrSerialize ENVELOPE_TYPE_TX
+envelopeTypeXdr = xdrSerialize ENVELOPE_TYPE_TX
 
-transactionHash :: Network -> Transaction -> B.ByteString
+transactionHash :: XDR tx => Network -> tx -> B.ByteString
 transactionHash nId tx =
     LB.toStrict $ bytestringDigest $ sha256 $ LB.fromStrict signatureBase
   where
-    txXdr = XDR.xdrSerialize tx
+    txXdr = xdrSerialize tx
     signatureBase = B.concat [nId, envelopeTypeXdr, txXdr]
 
-verify :: Network -> Transaction -> C.PublicKey -> DecoratedSignature -> Bool
+verify
+    :: XDR tx
+    => Network
+    -> tx
+    -> C.PublicKey
+    -> DecoratedSignature
+    -> Bool
 verify nId tx publicKey (DecoratedSignature _ signature) =
     C.dverify publicKey txHash (C.Signature $ unLengthArray signature)
   where

@@ -16,12 +16,29 @@ enum CryptoKeyType
 {
     KEY_TYPE_ED25519 = 0,
     KEY_TYPE_PRE_AUTH_TX = 1,
-    KEY_TYPE_HASH_X = 2
+    KEY_TYPE_HASH_X = 2,
+    KEY_TYPE_ED25519_SIGNED_PAYLOAD = 3,
+    // MUXED enum values for supported type are derived from the enum values
+    // above by ORing them with 0x100
+    KEY_TYPE_MUXED_ED25519 = 0x100
 };
 
 enum PublicKeyType
 {
     PUBLIC_KEY_TYPE_ED25519 = KEY_TYPE_ED25519
+};
+
+// Source or destination of a payment operation
+union MuxedAccount switch (CryptoKeyType type)
+{
+case KEY_TYPE_ED25519:
+    uint256 ed25519;
+case KEY_TYPE_MUXED_ED25519:
+    struct
+    {
+        uint64 id;
+        uint256 ed25519;
+    } med25519;
 };
 
 enum SignerKeyType
@@ -87,8 +104,11 @@ typedef PublicKey AccountID;
 typedef opaque Thresholds[4];
 typedef string string32<32>;
 typedef string string64<64>;
-typedef uint64 SequenceNumber;
-typedef opaque DataValue<64>; 
+typedef int64 SequenceNumber;
+typedef uint64 TimePoint;
+typedef uint64 Duration;
+typedef opaque DataValue<64>;
+typedef Hash PoolID; // SHA256(LiquidityPoolParameters)
 
 enum AssetType
 {
@@ -294,9 +314,14 @@ struct LedgerEntry
 // the respective envelopes
 enum EnvelopeType
 {
+    ENVELOPE_TYPE_TX_V0 = 0,
     ENVELOPE_TYPE_SCP = 1,
     ENVELOPE_TYPE_TX = 2,
-    ENVELOPE_TYPE_AUTH = 3
+    ENVELOPE_TYPE_AUTH = 3,
+    ENVELOPE_TYPE_SCPVALUE = 4,
+    ENVELOPE_TYPE_TX_FEE_BUMP = 5,
+    ENVELOPE_TYPE_OP_ID = 6,
+    ENVELOPE_TYPE_POOL_REVOKE_OP_ID = 7
 };
 
 // Copyright 2015 Stellar Development Foundation and contributors. Licensed
@@ -483,7 +508,7 @@ union AllowTrustOpAsset switch (AssetType type)
 struct AllowTrustOp
 {
     AccountID trustor;
-    
+
     AllowTrustOpAsset asset;
 
     bool authorize;
@@ -507,7 +532,7 @@ Result: InflationResult
 */
 
 /* ManageData
-    Adds, Updates, or Deletes a key value pair associated with a particular 
+    Adds, Updates, or Deletes a key value pair associated with a particular
 	account.
 
     Threshold: med
@@ -517,7 +542,7 @@ Result: InflationResult
 
 struct ManageDataOp
 {
-    string64 dataName; 
+    string64 dataName;
     DataValue* dataValue;   // set to null to clear
 };
 
@@ -582,8 +607,92 @@ case MEMO_RETURN:
 
 struct TimeBounds
 {
-    uint64 minTime;
-    uint64 maxTime; // 0 here means no maxTime
+    TimePoint minTime;
+    TimePoint maxTime; // 0 here means no maxTime
+};
+
+struct LedgerBounds
+{
+    uint32 minLedger;
+    uint32 maxLedger; // 0 here means no maxLedger
+};
+
+struct PreconditionsV2
+{
+    TimeBounds* timeBounds;
+
+    // Transaction only valid for ledger numbers n such that
+    // minLedger <= n < maxLedger (if maxLedger == 0, then
+    // only minLedger is checked)
+    LedgerBounds* ledgerBounds;
+
+    // If NULL, only valid when sourceAccount's sequence number
+    // is seqNum - 1.  Otherwise, valid when sourceAccount's
+    // sequence number n satisfies minSeqNum <= n < tx.seqNum.
+    // Note that after execution the account's sequence number
+    // is always raised to tx.seqNum, and a transaction is not
+    // valid if tx.seqNum is too high to ensure replay protection.
+    SequenceNumber* minSeqNum;
+
+    // For the transaction to be valid, the current ledger time must
+    // be at least minSeqAge greater than sourceAccount's seqTime.
+    Duration minSeqAge;
+
+    // For the transaction to be valid, the current ledger number
+    // must be at least minSeqLedgerGap greater than sourceAccount's
+    // seqLedger.
+    uint32 minSeqLedgerGap;
+
+    // For the transaction to be valid, there must be a signature
+    // corresponding to every Signer in this array, even if the
+    // signature is not otherwise required by the sourceAccount or
+    // operations.
+    SignerKey extraSigners<2>;
+};
+
+enum PreconditionType
+{
+    PRECOND_NONE = 0,
+    PRECOND_TIME = 1,
+    PRECOND_V2 = 2
+};
+
+union Preconditions switch (PreconditionType type)
+{
+case PRECOND_NONE:
+    void;
+case PRECOND_TIME:
+    TimeBounds timeBounds;
+case PRECOND_V2:
+    PreconditionsV2 v2;
+};
+
+// maximum number of operations per transaction
+const MAX_OPS_PER_TX = 100;
+
+// TransactionV0 is a transaction with the AccountID discriminant stripped off,
+// leaving a raw ed25519 public key to identify the source account. This is used
+// for backwards compatibility starting from the protocol 12/13 boundary. If an
+// "old-style" TransactionEnvelope containing a Transaction is parsed with this
+// XDR definition, it will be parsed as a "new-style" TransactionEnvelope
+// containing a TransactionV0.
+struct TransactionV0
+{
+    uint256 sourceAccountEd25519;
+    uint32 fee;
+    SequenceNumber seqNum;
+    TimeBounds* timeBounds;
+    Memo memo;
+    Operation operations<MAX_OPS_PER_TX>;
+    int v;
+};
+
+struct TransactionV0Envelope
+{
+    TransactionV0 tx;
+    /* Each decorated signature is a signature over the SHA256 hash of
+     * a TransactionSignaturePayload */
+    DecoratedSignature signatures<20>;
 };
 
 /* a transaction is a container for a set of operations
@@ -593,11 +702,10 @@ struct TimeBounds
           either all operations are applied or none are
           if any returns a failing code
 */
-
 struct Transaction
 {
     // account used to run the transaction
-    AccountID sourceAccount;
+    MuxedAccount sourceAccount;
 
     // the fee the sourceAccount will pay
     uint32 fee;
@@ -605,37 +713,57 @@ struct Transaction
     // sequence number to consume in the account
     SequenceNumber seqNum;
 
-    // validity range (inclusive) for the last ledger close time
-    TimeBounds* timeBounds;
+    // validity conditions
+    Preconditions cond;
 
     Memo memo;
 
-    Operation operations<100>;
+    Operation operations<MAX_OPS_PER_TX>;
 
     // reserved for future use
     int v;
     void;
 };
 
-union TransactionSignaturePayloadWrapped switch (EnvelopeType type)
-{
-case ENVELOPE_TYPE_TX:
-      Transaction tx;
-/* All other values of type are invalid */
-};
-struct TransactionSignaturePayload {
-    Hash networkId;
-    TransactionSignaturePayloadWrapped taggedTransaction;
-};
-
-/* A TransactionEnvelope wraps a transaction with signatures. */
-struct TransactionEnvelope
+struct TransactionV1Envelope
 {
     Transaction tx;
     /* Each decorated signature is a signature over the SHA256 hash of
      * a TransactionSignaturePayload */
-    DecoratedSignature
-    signatures<20>;
+    DecoratedSignature signatures<20>;
+};
+
+union FeeBumpTransaction_innerTx switch (EnvelopeType type)
+{
+case ENVELOPE_TYPE_TX:
+    TransactionV1Envelope v1;
+};
+
+struct FeeBumpTransaction
+{
+    MuxedAccount feeSource;
+    int64 fee;
+    FeeBumpTransaction_innerTx innerTx;
+    int v;
+};
+
+struct FeeBumpTransactionEnvelope
+{
+    FeeBumpTransaction tx;
+    /* Each decorated signature is a signature over the SHA256 hash of
+     * a TransactionSignaturePayload */
+    DecoratedSignature signatures<20>;
+};
+
+/* A TransactionEnvelope wraps a transaction with signatures. */
+union TransactionEnvelope switch (EnvelopeType type)
+{
+case ENVELOPE_TYPE_TX_V0:
+    TransactionV0Envelope v0;
+case ENVELOPE_TYPE_TX:
+    TransactionV1Envelope v1;
+case ENVELOPE_TYPE_TX_FEE_BUMP:
+    FeeBumpTransactionEnvelope feeBump;
 };
 
 /* Operation Results section */
@@ -789,7 +917,7 @@ case MANAGE_OFFER_UPDATED:
 default:
     void;
 };
-    
+
 struct ManageOfferSuccessResult
 {
     // offers that got claimed while creating this offer

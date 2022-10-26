@@ -59,7 +59,8 @@ signVerifySpec =
                 keyPair = fromPrivateKey' secret
                 public = kpPublicKey keyPair
                 tx = build $ transactionBuilder public 59
-            TransactionEnvelope tx' signaturesLA <-
+            TransactionEnvelope'ENVELOPE_TYPE_TX
+                    (TransactionV1Envelope tx' signaturesLA) <-
                 assertRight $ sign testNetwork (toEnvelope tx) [keyPair]
             tx `shouldBe` tx'
             let signatures = unLengthArray signaturesLA

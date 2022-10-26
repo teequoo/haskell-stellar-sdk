@@ -20,8 +20,10 @@ type Int64 = XDR.Hyper
 data CryptoKeyType = KEY_TYPE_ED25519
                    | KEY_TYPE_PRE_AUTH_TX
                    | KEY_TYPE_HASH_X
-                   deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                             Prelude.Show)
+                   | KEY_TYPE_ED25519_SIGNED_PAYLOAD
+                   | KEY_TYPE_MUXED_ED25519
+                     deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                               Prelude.Show)
 
 instance XDR.XDR CryptoKeyType where
   xdrType _ = "CryptoKeyType"
@@ -32,14 +34,18 @@ instance XDR.XDREnum CryptoKeyType where
   xdrFromEnum KEY_TYPE_ED25519 = 0
   xdrFromEnum KEY_TYPE_PRE_AUTH_TX = 1
   xdrFromEnum KEY_TYPE_HASH_X = 2
+  xdrFromEnum KEY_TYPE_ED25519_SIGNED_PAYLOAD = 3
+  xdrFromEnum KEY_TYPE_MUXED_ED25519 = 256
   xdrToEnum 0 = Prelude.return KEY_TYPE_ED25519
   xdrToEnum 1 = Prelude.return KEY_TYPE_PRE_AUTH_TX
   xdrToEnum 2 = Prelude.return KEY_TYPE_HASH_X
+  xdrToEnum 3 = Prelude.return KEY_TYPE_ED25519_SIGNED_PAYLOAD
+  xdrToEnum 256 = Prelude.return KEY_TYPE_MUXED_ED25519
   xdrToEnum _ = Prelude.fail "invalid CryptoKeyType"
 
 data PublicKeyType = PUBLIC_KEY_TYPE_ED25519
-                   deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                             Prelude.Show)
+                     deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                               Prelude.Show)
 
 instance XDR.XDR PublicKeyType where
   xdrType _ = "PublicKeyType"
@@ -51,11 +57,44 @@ instance XDR.XDREnum PublicKeyType where
   xdrToEnum 0 = Prelude.return PUBLIC_KEY_TYPE_ED25519
   xdrToEnum _ = Prelude.fail "invalid PublicKeyType"
 
+data MuxedAccount = MuxedAccount'KEY_TYPE_ED25519{muxedAccount'ed25519
+                                                  :: !Uint256}
+                  | MuxedAccount'KEY_TYPE_MUXED_ED25519{muxedAccount'med25519'id ::
+                                                        !Uint64,
+                                                        muxedAccount'med25519'ed25519 :: !Uint256}
+                    deriving (Prelude.Eq, Prelude.Show)
+
+muxedAccount'type :: MuxedAccount -> CryptoKeyType
+muxedAccount'type = XDR.xdrDiscriminant
+
+instance XDR.XDR MuxedAccount where
+  xdrType _ = "MuxedAccount"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion MuxedAccount where
+  type XDRDiscriminant MuxedAccount = CryptoKeyType
+  xdrSplitUnion _x@MuxedAccount'KEY_TYPE_ED25519{}
+    = (0, XDR.xdrPut (muxedAccount'ed25519 _x))
+  xdrSplitUnion _x@MuxedAccount'KEY_TYPE_MUXED_ED25519{}
+    = (256,
+       XDR.xdrPut (muxedAccount'med25519'id _x) Control.Applicative.*>
+         XDR.xdrPut (muxedAccount'med25519'ed25519 _x))
+  xdrGetUnionArm 0
+    = Control.Applicative.pure MuxedAccount'KEY_TYPE_ED25519
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 256
+    = Control.Applicative.pure MuxedAccount'KEY_TYPE_MUXED_ED25519
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid MuxedAccount discriminant"
+
 data SignerKeyType = SIGNER_KEY_TYPE_ED25519
                    | SIGNER_KEY_TYPE_PRE_AUTH_TX
                    | SIGNER_KEY_TYPE_HASH_X
-                   deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                             Prelude.Show)
+                     deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                               Prelude.Show)
 
 instance XDR.XDR SignerKeyType where
   xdrType _ = "SignerKeyType"
@@ -73,7 +112,7 @@ instance XDR.XDREnum SignerKeyType where
 
 data PublicKey = PublicKey'PUBLIC_KEY_TYPE_ED25519{publicKey'ed25519
                                                    :: !Uint256}
-               deriving (Prelude.Eq, Prelude.Show)
+                 deriving (Prelude.Eq, Prelude.Show)
 
 publicKey'type :: PublicKey -> PublicKeyType
 publicKey'type = XDR.xdrDiscriminant
@@ -97,7 +136,7 @@ data SignerKey = SignerKey'SIGNER_KEY_TYPE_ED25519{signerKey'ed25519
                | SignerKey'SIGNER_KEY_TYPE_PRE_AUTH_TX{signerKey'preAuthTx ::
                                                        !Uint256}
                | SignerKey'SIGNER_KEY_TYPE_HASH_X{signerKey'hashX :: !Uint256}
-               deriving (Prelude.Eq, Prelude.Show)
+                 deriving (Prelude.Eq, Prelude.Show)
 
 signerKey'type :: SignerKey -> SignerKeyType
 signerKey'type = XDR.xdrDiscriminant
@@ -134,7 +173,7 @@ type NodeID = PublicKey
 
 data Curve25519Secret = Curve25519Secret{curve25519Secret'key ::
                                          !(XDR.FixedOpaque 32)}
-                      deriving (Prelude.Eq, Prelude.Show)
+                        deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR Curve25519Secret where
   xdrType _ = "Curve25519Secret"
@@ -145,7 +184,7 @@ instance XDR.XDR Curve25519Secret where
 
 data Curve25519Public = Curve25519Public{curve25519Public'key ::
                                          !(XDR.FixedOpaque 32)}
-                      deriving (Prelude.Eq, Prelude.Show)
+                        deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR Curve25519Public where
   xdrType _ = "Curve25519Public"
@@ -156,7 +195,7 @@ instance XDR.XDR Curve25519Public where
 
 data HmacSha256Key = HmacSha256Key{hmacSha256Key'key ::
                                    !(XDR.FixedOpaque 32)}
-                   deriving (Prelude.Eq, Prelude.Show)
+                     deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR HmacSha256Key where
   xdrType _ = "HmacSha256Key"
@@ -167,7 +206,7 @@ instance XDR.XDR HmacSha256Key where
 
 data HmacSha256Mac = HmacSha256Mac{hmacSha256Mac'mac ::
                                    !(XDR.FixedOpaque 32)}
-                   deriving (Prelude.Eq, Prelude.Show)
+                     deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR HmacSha256Mac where
   xdrType _ = "HmacSha256Mac"
@@ -184,15 +223,21 @@ type String32 = XDR.String 32
 
 type String64 = XDR.String 64
 
-type SequenceNumber = Uint64
+type SequenceNumber = Int64
+
+type TimePoint = Uint64
+
+type Duration = Uint64
 
 type DataValue = XDR.Opaque 64
+
+type PoolID = Hash
 
 data AssetType = ASSET_TYPE_NATIVE
                | ASSET_TYPE_CREDIT_ALPHANUM4
                | ASSET_TYPE_CREDIT_ALPHANUM12
-               deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                         Prelude.Show)
+                 deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                           Prelude.Show)
 
 instance XDR.XDR AssetType where
   xdrType _ = "AssetType"
@@ -215,7 +260,7 @@ data Asset = Asset'ASSET_TYPE_NATIVE{}
            | Asset'ASSET_TYPE_CREDIT_ALPHANUM12{asset'alphaNum12'assetCode ::
                                                 !(XDR.FixedOpaque 12),
                                                 asset'alphaNum12'issuer :: !AccountID}
-           deriving (Prelude.Eq, Prelude.Show)
+             deriving (Prelude.Eq, Prelude.Show)
 
 asset'type :: Asset -> AssetType
 asset'type = XDR.xdrDiscriminant
@@ -249,7 +294,7 @@ instance XDR.XDRUnion Asset where
   xdrGetUnionArm _c = Prelude.fail "invalid Asset discriminant"
 
 data Price = Price{price'n :: !Int32, price'd :: !Int32}
-           deriving (Prelude.Eq, Prelude.Show)
+             deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR Price where
   xdrType _ = "Price"
@@ -264,8 +309,8 @@ data ThresholdIndexes = THRESHOLD_MASTER_WEIGHT
                       | THRESHOLD_LOW
                       | THRESHOLD_MED
                       | THRESHOLD_HIGH
-                      deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                Prelude.Show)
+                        deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                  Prelude.Show)
 
 instance XDR.XDR ThresholdIndexes where
   xdrType _ = "ThresholdIndexes"
@@ -287,8 +332,8 @@ data LedgerEntryType = ACCOUNT
                      | TRUSTLINE
                      | OFFER
                      | DATA
-                     deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                               Prelude.Show)
+                       deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                 Prelude.Show)
 
 instance XDR.XDR LedgerEntryType where
   xdrType _ = "LedgerEntryType"
@@ -308,7 +353,7 @@ instance XDR.XDREnum LedgerEntryType where
 
 data Signer = Signer{signer'key :: !SignerKey,
                      signer'weight :: !Uint32}
-            deriving (Prelude.Eq, Prelude.Show)
+              deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR Signer where
   xdrType _ = "Signer"
@@ -323,8 +368,8 @@ instance XDR.XDR Signer where
 data AccountFlags = AUTH_REQUIRED_FLAG
                   | AUTH_REVOCABLE_FLAG
                   | AUTH_IMMUTABLE_FLAG
-                  deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                            Prelude.Show)
+                    deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                              Prelude.Show)
 
 instance XDR.XDR AccountFlags where
   xdrType _ = "AccountFlags"
@@ -350,7 +395,7 @@ data AccountEntry = AccountEntry{accountEntry'accountID ::
                                  accountEntry'homeDomain :: !String32,
                                  accountEntry'thresholds :: !Thresholds,
                                  accountEntry'signers :: !(XDR.Array 20 Signer)}
-                  deriving (Prelude.Eq, Prelude.Show)
+                    deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR AccountEntry where
   xdrType _ = "AccountEntry"
@@ -377,8 +422,8 @@ instance XDR.XDR AccountEntry where
         Control.Applicative.<*> XDR.xdrGet
 
 data TrustLineFlags = AUTHORIZED_FLAG
-                    deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                              Prelude.Show)
+                      deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                Prelude.Show)
 
 instance XDR.XDR TrustLineFlags where
   xdrType _ = "TrustLineFlags"
@@ -396,7 +441,7 @@ data TrustLineEntry = TrustLineEntry{trustLineEntry'accountID ::
                                      trustLineEntry'balance :: !Int64,
                                      trustLineEntry'limit :: !Int64,
                                      trustLineEntry'flags :: !Uint32}
-                    deriving (Prelude.Eq, Prelude.Show)
+                      deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR TrustLineEntry where
   xdrType _ = "TrustLineEntry"
@@ -415,8 +460,8 @@ instance XDR.XDR TrustLineEntry where
         Control.Applicative.<*> XDR.xdrGet
 
 data OfferEntryFlags = PASSIVE_FLAG
-                     deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                               Prelude.Show)
+                       deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                 Prelude.Show)
 
 instance XDR.XDR OfferEntryFlags where
   xdrType _ = "OfferEntryFlags"
@@ -432,7 +477,7 @@ data OfferEntry = OfferEntry{offerEntry'sellerID :: !AccountID,
                              offerEntry'offerID :: !Uint64, offerEntry'selling :: !Asset,
                              offerEntry'buying :: !Asset, offerEntry'amount :: !Int64,
                              offerEntry'price :: !Price, offerEntry'flags :: !Uint32}
-                deriving (Prelude.Eq, Prelude.Show)
+                  deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR OfferEntry where
   xdrType _ = "OfferEntry"
@@ -456,7 +501,7 @@ instance XDR.XDR OfferEntry where
 
 data DataEntry = DataEntry{dataEntry'accountID :: !AccountID,
                            dataEntry'dataName :: !String64, dataEntry'dataValue :: !DataValue}
-               deriving (Prelude.Eq, Prelude.Show)
+                 deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR DataEntry where
   xdrType _ = "DataEntry"
@@ -476,7 +521,7 @@ data LedgerEntryData = LedgerEntryData'ACCOUNT{ledgerEntryData'account
                                                  !TrustLineEntry}
                      | LedgerEntryData'OFFER{ledgerEntryData'offer :: !OfferEntry}
                      | LedgerEntryData'DATA{ledgerEntryData'data :: !DataEntry}
-                     deriving (Prelude.Eq, Prelude.Show)
+                       deriving (Prelude.Eq, Prelude.Show)
 
 ledgerEntryData'type :: LedgerEntryData -> LedgerEntryType
 ledgerEntryData'type = XDR.xdrDiscriminant
@@ -514,7 +559,7 @@ instance XDR.XDRUnion LedgerEntryData where
 data LedgerEntry = LedgerEntry{ledgerEntry'lastModifiedLedgerSeq ::
                                !Uint32,
                                ledgerEntry'data :: !LedgerEntryData}
-                 deriving (Prelude.Eq, Prelude.Show)
+                   deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR LedgerEntry where
   xdrType _ = "LedgerEntry"
@@ -526,11 +571,16 @@ instance XDR.XDR LedgerEntry where
         XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
-data EnvelopeType = ENVELOPE_TYPE_SCP
+data EnvelopeType = ENVELOPE_TYPE_TX_V0
+                  | ENVELOPE_TYPE_SCP
                   | ENVELOPE_TYPE_TX
                   | ENVELOPE_TYPE_AUTH
-                  deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                            Prelude.Show)
+                  | ENVELOPE_TYPE_SCPVALUE
+                  | ENVELOPE_TYPE_TX_FEE_BUMP
+                  | ENVELOPE_TYPE_OP_ID
+                  | ENVELOPE_TYPE_POOL_REVOKE_OP_ID
+                    deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                              Prelude.Show)
 
 instance XDR.XDR EnvelopeType where
   xdrType _ = "EnvelopeType"
@@ -538,18 +588,28 @@ instance XDR.XDR EnvelopeType where
   xdrGet = XDR.xdrGetEnum
 
 instance XDR.XDREnum EnvelopeType where
+  xdrFromEnum ENVELOPE_TYPE_TX_V0 = 0
   xdrFromEnum ENVELOPE_TYPE_SCP = 1
   xdrFromEnum ENVELOPE_TYPE_TX = 2
   xdrFromEnum ENVELOPE_TYPE_AUTH = 3
+  xdrFromEnum ENVELOPE_TYPE_SCPVALUE = 4
+  xdrFromEnum ENVELOPE_TYPE_TX_FEE_BUMP = 5
+  xdrFromEnum ENVELOPE_TYPE_OP_ID = 6
+  xdrFromEnum ENVELOPE_TYPE_POOL_REVOKE_OP_ID = 7
+  xdrToEnum 0 = Prelude.return ENVELOPE_TYPE_TX_V0
   xdrToEnum 1 = Prelude.return ENVELOPE_TYPE_SCP
   xdrToEnum 2 = Prelude.return ENVELOPE_TYPE_TX
   xdrToEnum 3 = Prelude.return ENVELOPE_TYPE_AUTH
+  xdrToEnum 4 = Prelude.return ENVELOPE_TYPE_SCPVALUE
+  xdrToEnum 5 = Prelude.return ENVELOPE_TYPE_TX_FEE_BUMP
+  xdrToEnum 6 = Prelude.return ENVELOPE_TYPE_OP_ID
+  xdrToEnum 7 = Prelude.return ENVELOPE_TYPE_POOL_REVOKE_OP_ID
   xdrToEnum _ = Prelude.fail "invalid EnvelopeType"
 
 data DecoratedSignature = DecoratedSignature{decoratedSignature'hint
                                              :: !SignatureHint,
                                              decoratedSignature'signature :: !Signature}
-                        deriving (Prelude.Eq, Prelude.Show)
+                          deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR DecoratedSignature where
   xdrType _ = "DecoratedSignature"
@@ -572,8 +632,8 @@ data OperationType = CREATE_ACCOUNT
                    | ACCOUNT_MERGE
                    | INFLATION
                    | MANAGE_DATA
-                   deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                             Prelude.Show)
+                     deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                               Prelude.Show)
 
 instance XDR.XDR OperationType where
   xdrType _ = "OperationType"
@@ -608,7 +668,7 @@ instance XDR.XDREnum OperationType where
 data CreateAccountOp = CreateAccountOp{createAccountOp'destination
                                        :: !AccountID,
                                        createAccountOp'startingBalance :: !Int64}
-                     deriving (Prelude.Eq, Prelude.Show)
+                       deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR CreateAccountOp where
   xdrType _ = "CreateAccountOp"
@@ -623,7 +683,7 @@ instance XDR.XDR CreateAccountOp where
 
 data PaymentOp = PaymentOp{paymentOp'destination :: !AccountID,
                            paymentOp'asset :: !Asset, paymentOp'amount :: !Int64}
-               deriving (Prelude.Eq, Prelude.Show)
+                 deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR PaymentOp where
   xdrType _ = "PaymentOp"
@@ -644,7 +704,7 @@ data PathPaymentOp = PathPaymentOp{pathPaymentOp'sendAsset ::
                                    pathPaymentOp'destAsset :: !Asset,
                                    pathPaymentOp'destAmount :: !Int64,
                                    pathPaymentOp'path :: !(XDR.Array 5 Asset)}
-                   deriving (Prelude.Eq, Prelude.Show)
+                     deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR PathPaymentOp where
   xdrType _ = "PathPaymentOp"
@@ -667,7 +727,7 @@ instance XDR.XDR PathPaymentOp where
 data ManageOfferOp = ManageOfferOp{manageOfferOp'selling :: !Asset,
                                    manageOfferOp'buying :: !Asset, manageOfferOp'amount :: !Int64,
                                    manageOfferOp'price :: !Price, manageOfferOp'offerID :: !Uint64}
-                   deriving (Prelude.Eq, Prelude.Show)
+                     deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR ManageOfferOp where
   xdrType _ = "ManageOfferOp"
@@ -690,7 +750,7 @@ data CreatePassiveOfferOp = CreatePassiveOfferOp{createPassiveOfferOp'selling
                                                  createPassiveOfferOp'buying :: !Asset,
                                                  createPassiveOfferOp'amount :: !Int64,
                                                  createPassiveOfferOp'price :: !Price}
-                          deriving (Prelude.Eq, Prelude.Show)
+                            deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR CreatePassiveOfferOp where
   xdrType _ = "CreatePassiveOfferOp"
@@ -716,7 +776,7 @@ data SetOptionsOp = SetOptionsOp{setOptionsOp'inflationDest ::
                                  setOptionsOp'highThreshold :: !(XDR.Optional Uint32),
                                  setOptionsOp'homeDomain :: !(XDR.Optional String32),
                                  setOptionsOp'signer :: !(XDR.Optional Signer)}
-                  deriving (Prelude.Eq, Prelude.Show)
+                    deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR SetOptionsOp where
   xdrType _ = "SetOptionsOp"
@@ -744,7 +804,7 @@ instance XDR.XDR SetOptionsOp where
 
 data ChangeTrustOp = ChangeTrustOp{changeTrustOp'line :: !Asset,
                                    changeTrustOp'limit :: !Int64}
-                   deriving (Prelude.Eq, Prelude.Show)
+                     deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR ChangeTrustOp where
   xdrType _ = "ChangeTrustOp"
@@ -760,7 +820,7 @@ data AllowTrustOpAsset = AllowTrustOpAsset'ASSET_TYPE_CREDIT_ALPHANUM4{allowTrus
                                                                        :: !(XDR.FixedOpaque 4)}
                        | AllowTrustOpAsset'ASSET_TYPE_CREDIT_ALPHANUM12{allowTrustOpAsset'assetCode12
                                                                         :: !(XDR.FixedOpaque 12)}
-                       deriving (Prelude.Eq, Prelude.Show)
+                         deriving (Prelude.Eq, Prelude.Show)
 
 allowTrustOpAsset'type :: AllowTrustOpAsset -> AssetType
 allowTrustOpAsset'type = XDR.xdrDiscriminant
@@ -791,7 +851,7 @@ data AllowTrustOp = AllowTrustOp{allowTrustOp'trustor ::
                                  !AccountID,
                                  allowTrustOp'asset :: !AllowTrustOpAsset,
                                  allowTrustOp'authorize :: !XDR.Bool}
-                  deriving (Prelude.Eq, Prelude.Show)
+                    deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR AllowTrustOp where
   xdrType _ = "AllowTrustOp"
@@ -808,7 +868,7 @@ instance XDR.XDR AllowTrustOp where
 data ManageDataOp = ManageDataOp{manageDataOp'dataName ::
                                  !String64,
                                  manageDataOp'dataValue :: !(XDR.Optional DataValue)}
-                  deriving (Prelude.Eq, Prelude.Show)
+                    deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR ManageDataOp where
   xdrType _ = "ManageDataOp"
@@ -840,7 +900,7 @@ data OperationBody = OperationBody'CREATE_ACCOUNT{operationBody'createAccountOp
                    | OperationBody'INFLATION{}
                    | OperationBody'MANAGE_DATA{operationBody'manageDataOp ::
                                                !ManageDataOp}
-                   deriving (Prelude.Eq, Prelude.Show)
+                     deriving (Prelude.Eq, Prelude.Show)
 
 operationBody'type :: OperationBody -> OperationType
 operationBody'type = XDR.xdrDiscriminant
@@ -911,7 +971,7 @@ instance XDR.XDRUnion OperationBody where
 data Operation = Operation{operation'sourceAccount ::
                            !(XDR.Optional AccountID),
                            operation'body :: !OperationBody}
-               deriving (Prelude.Eq, Prelude.Show)
+                 deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR Operation where
   xdrType _ = "Operation"
@@ -928,8 +988,8 @@ data MemoType = MEMO_NONE
               | MEMO_ID
               | MEMO_HASH
               | MEMO_RETURN
-              deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                        Prelude.Show)
+                deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                          Prelude.Show)
 
 instance XDR.XDR MemoType where
   xdrType _ = "MemoType"
@@ -954,7 +1014,7 @@ data Memo = Memo'MEMO_NONE{}
           | Memo'MEMO_ID{memo'id :: !Uint64}
           | Memo'MEMO_HASH{memo'hash :: !Hash}
           | Memo'MEMO_RETURN{memo'retHash :: !Hash}
-          deriving (Prelude.Eq, Prelude.Show)
+            deriving (Prelude.Eq, Prelude.Show)
 
 memo'type :: Memo -> MemoType
 memo'type = XDR.xdrDiscriminant
@@ -988,9 +1048,9 @@ instance XDR.XDRUnion Memo where
         XDR.xdrGet
   xdrGetUnionArm _c = Prelude.fail "invalid Memo discriminant"
 
-data TimeBounds = TimeBounds{timeBounds'minTime :: !Uint64,
-                             timeBounds'maxTime :: !Uint64}
-                deriving (Prelude.Eq, Prelude.Show)
+data TimeBounds = TimeBounds{timeBounds'minTime :: !TimePoint,
+                             timeBounds'maxTime :: !TimePoint}
+                  deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR TimeBounds where
   xdrType _ = "TimeBounds"
@@ -1002,14 +1062,157 @@ instance XDR.XDR TimeBounds where
         XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
+data LedgerBounds = LedgerBounds{ledgerBounds'minLedger :: !Uint32,
+                                 ledgerBounds'maxLedger :: !Uint32}
+                    deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR LedgerBounds where
+  xdrType _ = "LedgerBounds"
+  xdrPut _x
+    = XDR.xdrPut (ledgerBounds'minLedger _x) Control.Applicative.*>
+        XDR.xdrPut (ledgerBounds'maxLedger _x)
+  xdrGet
+    = Control.Applicative.pure LedgerBounds Control.Applicative.<*>
+        XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data PreconditionsV2 = PreconditionsV2{preconditionsV2'timeBounds
+                                       :: !(XDR.Optional TimeBounds),
+                                       preconditionsV2'ledgerBounds :: !(XDR.Optional LedgerBounds),
+                                       preconditionsV2'minSeqNum :: !(XDR.Optional SequenceNumber),
+                                       preconditionsV2'minSeqAge :: !Duration,
+                                       preconditionsV2'minSeqLedgerGap :: !Uint32,
+                                       preconditionsV2'extraSigners :: !(XDR.Array 2 SignerKey)}
+                       deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR PreconditionsV2 where
+  xdrType _ = "PreconditionsV2"
+  xdrPut _x
+    = XDR.xdrPut (preconditionsV2'timeBounds _x) Control.Applicative.*>
+        XDR.xdrPut (preconditionsV2'ledgerBounds _x)
+        Control.Applicative.*> XDR.xdrPut (preconditionsV2'minSeqNum _x)
+        Control.Applicative.*> XDR.xdrPut (preconditionsV2'minSeqAge _x)
+        Control.Applicative.*>
+        XDR.xdrPut (preconditionsV2'minSeqLedgerGap _x)
+        Control.Applicative.*> XDR.xdrPut (preconditionsV2'extraSigners _x)
+  xdrGet
+    = Control.Applicative.pure PreconditionsV2 Control.Applicative.<*>
+        XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data PreconditionType = PRECOND_NONE
+                      | PRECOND_TIME
+                      | PRECOND_V2
+                        deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                  Prelude.Show)
+
+instance XDR.XDR PreconditionType where
+  xdrType _ = "PreconditionType"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum PreconditionType where
+  xdrFromEnum PRECOND_NONE = 0
+  xdrFromEnum PRECOND_TIME = 1
+  xdrFromEnum PRECOND_V2 = 2
+  xdrToEnum 0 = Prelude.return PRECOND_NONE
+  xdrToEnum 1 = Prelude.return PRECOND_TIME
+  xdrToEnum 2 = Prelude.return PRECOND_V2
+  xdrToEnum _ = Prelude.fail "invalid PreconditionType"
+
+data Preconditions = Preconditions'PRECOND_NONE{}
+                   | Preconditions'PRECOND_TIME{preconditions'timeBounds ::
+                                                !TimeBounds}
+                   | Preconditions'PRECOND_V2{preconditions'v2 :: !PreconditionsV2}
+                     deriving (Prelude.Eq, Prelude.Show)
+
+preconditions'type :: Preconditions -> PreconditionType
+preconditions'type = XDR.xdrDiscriminant
+
+instance XDR.XDR Preconditions where
+  xdrType _ = "Preconditions"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion Preconditions where
+  type XDRDiscriminant Preconditions = PreconditionType
+  xdrSplitUnion _x@Preconditions'PRECOND_NONE{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion _x@Preconditions'PRECOND_TIME{}
+    = (1, XDR.xdrPut (preconditions'timeBounds _x))
+  xdrSplitUnion _x@Preconditions'PRECOND_V2{}
+    = (2, XDR.xdrPut (preconditions'v2 _x))
+  xdrGetUnionArm 0
+    = Control.Applicative.pure Preconditions'PRECOND_NONE
+  xdrGetUnionArm 1
+    = Control.Applicative.pure Preconditions'PRECOND_TIME
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 2
+    = Control.Applicative.pure Preconditions'PRECOND_V2
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid Preconditions discriminant"
+
+mAX_OPS_PER_TX :: Prelude.Integral a => a
+mAX_OPS_PER_TX = 100
+
+data TransactionV0 = TransactionV0{transactionV0'sourceAccountEd25519
+                                   :: !Uint256,
+                                   transactionV0'fee :: !Uint32,
+                                   transactionV0'seqNum :: !SequenceNumber,
+                                   transactionV0'timeBounds :: !(XDR.Optional TimeBounds),
+                                   transactionV0'memo :: !Memo,
+                                   transactionV0'operations :: !(XDR.Array 100 Operation),
+                                   transactionV0'v :: !XDR.Int}
+                     deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR TransactionV0 where
+  xdrType _ = "TransactionV0"
+  xdrPut _x
+    = XDR.xdrPut (transactionV0'sourceAccountEd25519 _x)
+        Control.Applicative.*> XDR.xdrPut (transactionV0'fee _x)
+        Control.Applicative.*> XDR.xdrPut (transactionV0'seqNum _x)
+        Control.Applicative.*> XDR.xdrPut (transactionV0'timeBounds _x)
+        Control.Applicative.*> XDR.xdrPut (transactionV0'memo _x)
+        Control.Applicative.*> XDR.xdrPut (transactionV0'operations _x)
+        Control.Applicative.*> XDR.xdrPut (transactionV0'v _x)
+  xdrGet
+    = Control.Applicative.pure TransactionV0 Control.Applicative.<*>
+        XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data TransactionV0Envelope = TransactionV0Envelope{transactionV0Envelope'tx
+                                                   :: !TransactionV0,
+                                                   transactionV0Envelope'signatures ::
+                                                   !(XDR.Array 20 DecoratedSignature)}
+                             deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR TransactionV0Envelope where
+  xdrType _ = "TransactionV0Envelope"
+  xdrPut _x
+    = XDR.xdrPut (transactionV0Envelope'tx _x) Control.Applicative.*>
+        XDR.xdrPut (transactionV0Envelope'signatures _x)
+  xdrGet
+    = Control.Applicative.pure TransactionV0Envelope
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
 data Transaction = Transaction{transaction'sourceAccount ::
-                               !AccountID,
+                               !MuxedAccount,
                                transaction'fee :: !Uint32, transaction'seqNum :: !SequenceNumber,
-                               transaction'timeBounds :: !(XDR.Optional TimeBounds),
-                               transaction'memo :: !Memo,
+                               transaction'cond :: !Preconditions, transaction'memo :: !Memo,
                                transaction'operations :: !(XDR.Array 100 Operation),
                                transaction'v :: !XDR.Int}
-                 deriving (Prelude.Eq, Prelude.Show)
+                   deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR Transaction where
   xdrType _ = "Transaction"
@@ -1017,7 +1220,7 @@ instance XDR.XDR Transaction where
     = XDR.xdrPut (transaction'sourceAccount _x) Control.Applicative.*>
         XDR.xdrPut (transaction'fee _x)
         Control.Applicative.*> XDR.xdrPut (transaction'seqNum _x)
-        Control.Applicative.*> XDR.xdrPut (transaction'timeBounds _x)
+        Control.Applicative.*> XDR.xdrPut (transaction'cond _x)
         Control.Applicative.*> XDR.xdrPut (transaction'memo _x)
         Control.Applicative.*> XDR.xdrPut (transaction'operations _x)
         Control.Applicative.*> XDR.xdrPut (transaction'v _x)
@@ -1031,67 +1234,123 @@ instance XDR.XDR Transaction where
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
-data TransactionSignaturePayloadWrapped = TransactionSignaturePayloadWrapped'ENVELOPE_TYPE_TX{transactionSignaturePayloadWrapped'tx
-                                                                                              ::
-                                                                                              !Transaction}
-                                        deriving (Prelude.Eq, Prelude.Show)
+data TransactionV1Envelope = TransactionV1Envelope{transactionV1Envelope'tx
+                                                   :: !Transaction,
+                                                   transactionV1Envelope'signatures ::
+                                                   !(XDR.Array 20 DecoratedSignature)}
+                             deriving (Prelude.Eq, Prelude.Show)
 
-transactionSignaturePayloadWrapped'type ::
-                                        TransactionSignaturePayloadWrapped -> EnvelopeType
-transactionSignaturePayloadWrapped'type = XDR.xdrDiscriminant
+instance XDR.XDR TransactionV1Envelope where
+  xdrType _ = "TransactionV1Envelope"
+  xdrPut _x
+    = XDR.xdrPut (transactionV1Envelope'tx _x) Control.Applicative.*>
+        XDR.xdrPut (transactionV1Envelope'signatures _x)
+  xdrGet
+    = Control.Applicative.pure TransactionV1Envelope
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
 
-instance XDR.XDR TransactionSignaturePayloadWrapped where
-  xdrType _ = "TransactionSignaturePayloadWrapped"
+data FeeBumpTransaction_innerTx = FeeBumpTransaction_innerTx'ENVELOPE_TYPE_TX{feeBumpTransaction_innerTx'v1
+                                                                              ::
+                                                                              !TransactionV1Envelope}
+                                  deriving (Prelude.Eq, Prelude.Show)
+
+feeBumpTransaction_innerTx'type ::
+                                FeeBumpTransaction_innerTx -> EnvelopeType
+feeBumpTransaction_innerTx'type = XDR.xdrDiscriminant
+
+instance XDR.XDR FeeBumpTransaction_innerTx where
+  xdrType _ = "FeeBumpTransaction_innerTx"
   xdrPut = XDR.xdrPutUnion
   xdrGet = XDR.xdrGetUnion
 
-instance XDR.XDRUnion TransactionSignaturePayloadWrapped where
-  type XDRDiscriminant TransactionSignaturePayloadWrapped =
-       EnvelopeType
-  xdrSplitUnion
-    _x@TransactionSignaturePayloadWrapped'ENVELOPE_TYPE_TX{}
-    = (2, XDR.xdrPut (transactionSignaturePayloadWrapped'tx _x))
+instance XDR.XDRUnion FeeBumpTransaction_innerTx where
+  type XDRDiscriminant FeeBumpTransaction_innerTx = EnvelopeType
+  xdrSplitUnion _x@FeeBumpTransaction_innerTx'ENVELOPE_TYPE_TX{}
+    = (2, XDR.xdrPut (feeBumpTransaction_innerTx'v1 _x))
   xdrGetUnionArm 2
     = Control.Applicative.pure
-        TransactionSignaturePayloadWrapped'ENVELOPE_TYPE_TX
+        FeeBumpTransaction_innerTx'ENVELOPE_TYPE_TX
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm _c
-    = Prelude.fail
-        "invalid TransactionSignaturePayloadWrapped discriminant"
+    = Prelude.fail "invalid FeeBumpTransaction_innerTx discriminant"
 
-data TransactionSignaturePayload = TransactionSignaturePayload{transactionSignaturePayload'networkId
-                                                               :: !Hash,
-                                                               transactionSignaturePayload'taggedTransaction
-                                                               ::
-                                                               !TransactionSignaturePayloadWrapped}
-                                 deriving (Prelude.Eq, Prelude.Show)
+data FeeBumpTransaction = FeeBumpTransaction{feeBumpTransaction'feeSource
+                                             :: !MuxedAccount,
+                                             feeBumpTransaction'fee :: !Int64,
+                                             feeBumpTransaction'innerTx ::
+                                             !FeeBumpTransaction_innerTx,
+                                             feeBumpTransaction'v :: !XDR.Int}
+                          deriving (Prelude.Eq, Prelude.Show)
 
-instance XDR.XDR TransactionSignaturePayload where
-  xdrType _ = "TransactionSignaturePayload"
+instance XDR.XDR FeeBumpTransaction where
+  xdrType _ = "FeeBumpTransaction"
   xdrPut _x
-    = XDR.xdrPut (transactionSignaturePayload'networkId _x)
-        Control.Applicative.*>
-        XDR.xdrPut (transactionSignaturePayload'taggedTransaction _x)
+    = XDR.xdrPut (feeBumpTransaction'feeSource _x)
+        Control.Applicative.*> XDR.xdrPut (feeBumpTransaction'fee _x)
+        Control.Applicative.*> XDR.xdrPut (feeBumpTransaction'innerTx _x)
+        Control.Applicative.*> XDR.xdrPut (feeBumpTransaction'v _x)
   xdrGet
-    = Control.Applicative.pure TransactionSignaturePayload
+    = Control.Applicative.pure FeeBumpTransaction
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
-data TransactionEnvelope = TransactionEnvelope{transactionEnvelope'tx
-                                               :: !Transaction,
-                                               transactionEnvelope'signatures ::
-                                               !(XDR.Array 20 DecoratedSignature)}
-                         deriving (Prelude.Eq, Prelude.Show)
+data FeeBumpTransactionEnvelope = FeeBumpTransactionEnvelope{feeBumpTransactionEnvelope'tx
+                                                             :: !FeeBumpTransaction,
+                                                             feeBumpTransactionEnvelope'signatures
+                                                             :: !(XDR.Array 20 DecoratedSignature)}
+                                  deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR FeeBumpTransactionEnvelope where
+  xdrType _ = "FeeBumpTransactionEnvelope"
+  xdrPut _x
+    = XDR.xdrPut (feeBumpTransactionEnvelope'tx _x)
+        Control.Applicative.*>
+        XDR.xdrPut (feeBumpTransactionEnvelope'signatures _x)
+  xdrGet
+    = Control.Applicative.pure FeeBumpTransactionEnvelope
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data TransactionEnvelope = TransactionEnvelope'ENVELOPE_TYPE_TX_V0{transactionEnvelope'v0
+                                                                   :: !TransactionV0Envelope}
+                         | TransactionEnvelope'ENVELOPE_TYPE_TX{transactionEnvelope'v1 ::
+                                                                !TransactionV1Envelope}
+                         | TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP{transactionEnvelope'feeBump
+                                                                         ::
+                                                                         !FeeBumpTransactionEnvelope}
+                           deriving (Prelude.Eq, Prelude.Show)
+
+transactionEnvelope'type :: TransactionEnvelope -> EnvelopeType
+transactionEnvelope'type = XDR.xdrDiscriminant
 
 instance XDR.XDR TransactionEnvelope where
   xdrType _ = "TransactionEnvelope"
-  xdrPut _x
-    = XDR.xdrPut (transactionEnvelope'tx _x) Control.Applicative.*>
-        XDR.xdrPut (transactionEnvelope'signatures _x)
-  xdrGet
-    = Control.Applicative.pure TransactionEnvelope
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion TransactionEnvelope where
+  type XDRDiscriminant TransactionEnvelope = EnvelopeType
+  xdrSplitUnion _x@TransactionEnvelope'ENVELOPE_TYPE_TX_V0{}
+    = (0, XDR.xdrPut (transactionEnvelope'v0 _x))
+  xdrSplitUnion _x@TransactionEnvelope'ENVELOPE_TYPE_TX{}
+    = (2, XDR.xdrPut (transactionEnvelope'v1 _x))
+  xdrSplitUnion _x@TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP{}
+    = (5, XDR.xdrPut (transactionEnvelope'feeBump _x))
+  xdrGetUnionArm 0
+    = Control.Applicative.pure TransactionEnvelope'ENVELOPE_TYPE_TX_V0
         Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 2
+    = Control.Applicative.pure TransactionEnvelope'ENVELOPE_TYPE_TX
         Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 5
+    = Control.Applicative.pure
+        TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid TransactionEnvelope discriminant"
 
 data ClaimOfferAtom = ClaimOfferAtom{claimOfferAtom'sellerID ::
                                      !AccountID,
@@ -1100,7 +1359,7 @@ data ClaimOfferAtom = ClaimOfferAtom{claimOfferAtom'sellerID ::
                                      claimOfferAtom'amountSold :: !Int64,
                                      claimOfferAtom'assetBought :: !Asset,
                                      claimOfferAtom'amountBought :: !Int64}
-                    deriving (Prelude.Eq, Prelude.Show)
+                      deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR ClaimOfferAtom where
   xdrType _ = "ClaimOfferAtom"
@@ -1125,8 +1384,8 @@ data CreateAccountResultCode = CREATE_ACCOUNT_SUCCESS
                              | CREATE_ACCOUNT_UNDERFUNDED
                              | CREATE_ACCOUNT_LOW_RESERVE
                              | CREATE_ACCOUNT_ALREADY_EXIST
-                             deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                       Prelude.Show)
+                               deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                         Prelude.Show)
 
 instance XDR.XDR CreateAccountResultCode where
   xdrType _ = "CreateAccountResultCode"
@@ -1149,7 +1408,7 @@ instance XDR.XDREnum CreateAccountResultCode where
 data CreateAccountResult = CreateAccountResult'CREATE_ACCOUNT_SUCCESS{}
                          | CreateAccountResult'default{createAccountResult'code' ::
                                                        !CreateAccountResultCode}
-                         deriving (Prelude.Eq, Prelude.Show)
+                           deriving (Prelude.Eq, Prelude.Show)
 
 createAccountResult'code ::
                          CreateAccountResult -> CreateAccountResultCode
@@ -1184,8 +1443,8 @@ data PaymentResultCode = PAYMENT_SUCCESS
                        | PAYMENT_NOT_AUTHORIZED
                        | PAYMENT_LINE_FULL
                        | PAYMENT_NO_ISSUER
-                       deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                 Prelude.Show)
+                         deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                   Prelude.Show)
 
 instance XDR.XDR PaymentResultCode where
   xdrType _ = "PaymentResultCode"
@@ -1217,7 +1476,7 @@ instance XDR.XDREnum PaymentResultCode where
 
 data PaymentResult = PaymentResult'PAYMENT_SUCCESS{}
                    | PaymentResult'default{paymentResult'code' :: !PaymentResultCode}
-                   deriving (Prelude.Eq, Prelude.Show)
+                     deriving (Prelude.Eq, Prelude.Show)
 
 paymentResult'code :: PaymentResult -> PaymentResultCode
 paymentResult'code = XDR.xdrDiscriminant
@@ -1251,8 +1510,8 @@ data PathPaymentResultCode = PATH_PAYMENT_SUCCESS
                            | PATH_PAYMENT_TOO_FEW_OFFERS
                            | PATH_PAYMENT_OFFER_CROSS_SELF
                            | PATH_PAYMENT_OVER_SENDMAX
-                           deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                     Prelude.Show)
+                             deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                       Prelude.Show)
 
 instance XDR.XDR PathPaymentResultCode where
   xdrType _ = "PathPaymentResultCode"
@@ -1292,7 +1551,7 @@ data SimplePaymentResult = SimplePaymentResult{simplePaymentResult'destination
                                                :: !AccountID,
                                                simplePaymentResult'asset :: !Asset,
                                                simplePaymentResult'amount :: !Int64}
-                         deriving (Prelude.Eq, Prelude.Show)
+                           deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR SimplePaymentResult where
   xdrType _ = "SimplePaymentResult"
@@ -1316,7 +1575,7 @@ data PathPaymentResult = PathPaymentResult'PATH_PAYMENT_SUCCESS{pathPaymentResul
                                                                   :: !Asset}
                        | PathPaymentResult'default{pathPaymentResult'code' ::
                                                    !PathPaymentResultCode}
-                       deriving (Prelude.Eq, Prelude.Show)
+                         deriving (Prelude.Eq, Prelude.Show)
 
 pathPaymentResult'code ::
                        PathPaymentResult -> PathPaymentResultCode
@@ -1363,8 +1622,8 @@ data ManageOfferResultCode = MANAGE_OFFER_SUCCESS
                            | MANAGE_OFFER_BUY_NO_ISSUER
                            | MANAGE_OFFER_NOT_FOUND
                            | MANAGE_OFFER_LOW_RESERVE
-                           deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                     Prelude.Show)
+                             deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                       Prelude.Show)
 
 instance XDR.XDR ManageOfferResultCode where
   xdrType _ = "ManageOfferResultCode"
@@ -1403,8 +1662,8 @@ instance XDR.XDREnum ManageOfferResultCode where
 data ManageOfferEffect = MANAGE_OFFER_CREATED
                        | MANAGE_OFFER_UPDATED
                        | MANAGE_OFFER_DELETED
-                       deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                 Prelude.Show)
+                         deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                   Prelude.Show)
 
 instance XDR.XDR ManageOfferEffect where
   xdrType _ = "ManageOfferEffect"
@@ -1428,7 +1687,7 @@ data ManageOfferSuccesResultOffer = ManageOfferSuccesResultOffer'MANAGE_OFFER_CR
                                                                                       !OfferEntry}
                                   | ManageOfferSuccesResultOffer'default{manageOfferSuccesResultOffer'effect'
                                                                          :: !ManageOfferEffect}
-                                  deriving (Prelude.Eq, Prelude.Show)
+                                    deriving (Prelude.Eq, Prelude.Show)
 
 manageOfferSuccesResultOffer'effect ::
                                     ManageOfferSuccesResultOffer -> ManageOfferEffect
@@ -1468,7 +1727,7 @@ data ManageOfferSuccessResult = ManageOfferSuccessResult{manageOfferSuccessResul
                                                          :: !(XDR.Array 4294967295 ClaimOfferAtom),
                                                          manageOfferSuccessResult'offer ::
                                                          !ManageOfferSuccesResultOffer}
-                              deriving (Prelude.Eq, Prelude.Show)
+                                deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR ManageOfferSuccessResult where
   xdrType _ = "ManageOfferSuccessResult"
@@ -1485,7 +1744,7 @@ data ManageOfferResult = ManageOfferResult'MANAGE_OFFER_SUCCESS{manageOfferResul
                                                                 :: !ManageOfferSuccessResult}
                        | ManageOfferResult'default{manageOfferResult'code' ::
                                                    !ManageOfferResultCode}
-                       deriving (Prelude.Eq, Prelude.Show)
+                         deriving (Prelude.Eq, Prelude.Show)
 
 manageOfferResult'code ::
                        ManageOfferResult -> ManageOfferResultCode
@@ -1520,8 +1779,8 @@ data SetOptionsResultCode = SET_OPTIONS_SUCCESS
                           | SET_OPTIONS_THRESHOLD_OUT_OF_RANGE
                           | SET_OPTIONS_BAD_SIGNER
                           | SET_OPTIONS_INVALID_HOME_DOMAIN
-                          deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                    Prelude.Show)
+                            deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                      Prelude.Show)
 
 instance XDR.XDR SetOptionsResultCode where
   xdrType _ = "SetOptionsResultCode"
@@ -1554,7 +1813,7 @@ instance XDR.XDREnum SetOptionsResultCode where
 data SetOptionsResult = SetOptionsResult'SET_OPTIONS_SUCCESS{}
                       | SetOptionsResult'default{setOptionsResult'code' ::
                                                  !SetOptionsResultCode}
-                      deriving (Prelude.Eq, Prelude.Show)
+                        deriving (Prelude.Eq, Prelude.Show)
 
 setOptionsResult'code :: SetOptionsResult -> SetOptionsResultCode
 setOptionsResult'code = XDR.xdrDiscriminant
@@ -1582,8 +1841,8 @@ data ChangeTrustResultCode = CHANGE_TRUST_SUCCESS
                            | CHANGE_TRUST_INVALID_LIMIT
                            | CHANGE_TRUST_LOW_RESERVE
                            | CHANGE_TRUST_SELF_NOT_ALLOWED
-                           deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                     Prelude.Show)
+                             deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                       Prelude.Show)
 
 instance XDR.XDR ChangeTrustResultCode where
   xdrType _ = "ChangeTrustResultCode"
@@ -1608,7 +1867,7 @@ instance XDR.XDREnum ChangeTrustResultCode where
 data ChangeTrustResult = ChangeTrustResult'CHANGE_TRUST_SUCCESS{}
                        | ChangeTrustResult'default{changeTrustResult'code' ::
                                                    !ChangeTrustResultCode}
-                       deriving (Prelude.Eq, Prelude.Show)
+                         deriving (Prelude.Eq, Prelude.Show)
 
 changeTrustResult'code ::
                        ChangeTrustResult -> ChangeTrustResultCode
@@ -1638,8 +1897,8 @@ data AllowTrustResultCode = ALLOW_TRUST_SUCCESS
                           | ALLOW_TRUST_TRUST_NOT_REQUIRED
                           | ALLOW_TRUST_CANT_REVOKE
                           | ALLOW_TRUST_SELF_NOT_ALLOWED
-                          deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                    Prelude.Show)
+                            deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                      Prelude.Show)
 
 instance XDR.XDR AllowTrustResultCode where
   xdrType _ = "AllowTrustResultCode"
@@ -1664,7 +1923,7 @@ instance XDR.XDREnum AllowTrustResultCode where
 data AllowTrustResult = AllowTrustResult'ALLOW_TRUST_SUCCESS{}
                       | AllowTrustResult'default{allowTrustResult'code' ::
                                                  !AllowTrustResultCode}
-                      deriving (Prelude.Eq, Prelude.Show)
+                        deriving (Prelude.Eq, Prelude.Show)
 
 allowTrustResult'code :: AllowTrustResult -> AllowTrustResultCode
 allowTrustResult'code = XDR.xdrDiscriminant
@@ -1691,8 +1950,8 @@ data AccountMergeResultCode = ACCOUNT_MERGE_SUCCESS
                             | ACCOUNT_MERGE_NO_ACCOUNT
                             | ACCOUNT_MERGE_IMMUTABLE_SET
                             | ACCOUNT_MERGE_HAS_SUB_ENTRIES
-                            deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                      Prelude.Show)
+                              deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                        Prelude.Show)
 
 instance XDR.XDR AccountMergeResultCode where
   xdrType _ = "AccountMergeResultCode"
@@ -1716,7 +1975,7 @@ data AccountMergeResult = AccountMergeResult'ACCOUNT_MERGE_SUCCESS{accountMergeR
                                                                    :: !Int64}
                         | AccountMergeResult'default{accountMergeResult'code' ::
                                                      !AccountMergeResultCode}
-                        deriving (Prelude.Eq, Prelude.Show)
+                          deriving (Prelude.Eq, Prelude.Show)
 
 accountMergeResult'code ::
                         AccountMergeResult -> AccountMergeResultCode
@@ -1743,8 +2002,8 @@ instance XDR.XDRUnion AccountMergeResult where
 
 data InflationResultCode = INFLATION_SUCCESS
                          | INFLATION_NOT_TIME
-                         deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                   Prelude.Show)
+                           deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                     Prelude.Show)
 
 instance XDR.XDR InflationResultCode where
   xdrType _ = "InflationResultCode"
@@ -1761,7 +2020,7 @@ instance XDR.XDREnum InflationResultCode where
 data InflationPayout = InflationPayout{inflationPayout'destination
                                        :: !AccountID,
                                        inflationPayout'amount :: !Int64}
-                     deriving (Prelude.Eq, Prelude.Show)
+                       deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR InflationPayout where
   xdrType _ = "InflationPayout"
@@ -1777,7 +2036,7 @@ data InflationResult = InflationResult'INFLATION_SUCCESS{inflationResult'payouts
                                                          :: !(XDR.Array 4294967295 InflationPayout)}
                      | InflationResult'default{inflationResult'code' ::
                                                !InflationResultCode}
-                     deriving (Prelude.Eq, Prelude.Show)
+                       deriving (Prelude.Eq, Prelude.Show)
 
 inflationResult'code :: InflationResult -> InflationResultCode
 inflationResult'code = XDR.xdrDiscriminant
@@ -1804,8 +2063,8 @@ data ManageDataResultCode = MANAGE_DATA_SUCCESS
                           | MANAGE_DATA_NAME_NOT_FOUND
                           | MANAGE_DATA_LOW_RESERVE
                           | MANAGE_DATA_INVALID_NAME
-                          deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                    Prelude.Show)
+                            deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                      Prelude.Show)
 
 instance XDR.XDR ManageDataResultCode where
   xdrType _ = "ManageDataResultCode"
@@ -1828,7 +2087,7 @@ instance XDR.XDREnum ManageDataResultCode where
 data ManageDataResult = ManageDataResult'MANAGE_DATA_SUCCESS{}
                       | ManageDataResult'default{manageDataResult'code' ::
                                                  !ManageDataResultCode}
-                      deriving (Prelude.Eq, Prelude.Show)
+                        deriving (Prelude.Eq, Prelude.Show)
 
 manageDataResult'code :: ManageDataResult -> ManageDataResultCode
 manageDataResult'code = XDR.xdrDiscriminant
@@ -1853,8 +2112,8 @@ instance XDR.XDRUnion ManageDataResult where
 data OperationResultCode = OPERATION_RESULT_INNER
                          | OPERATION_RESULT_BAD_AUTH
                          | OPERATION_RESULT_NO_ACCOUNT
-                         deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                   Prelude.Show)
+                           deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                     Prelude.Show)
 
 instance XDR.XDR OperationResultCode where
   xdrType _ = "OperationResultCode"
@@ -1893,7 +2152,7 @@ data OperationResultTransaction = OperationResultTransaction'CREATE_ACCOUNT{oper
                                                                        :: !InflationResult}
                                 | OperationResultTransaction'MANAGE_DATA{operationResultTransaction'manageDataResult
                                                                          :: !ManageDataResult}
-                                deriving (Prelude.Eq, Prelude.Show)
+                                  deriving (Prelude.Eq, Prelude.Show)
 
 operationResultTransaction'type ::
                                 OperationResultTransaction -> OperationType
@@ -1974,7 +2233,7 @@ data OperationResult = OperationResult'OPERATION_RESULT_INNER{operationResult'tr
                                                               :: !OperationResultTransaction}
                      | OperationResult'default{operationResult'code' ::
                                                !OperationResultCode}
-                     deriving (Prelude.Eq, Prelude.Show)
+                       deriving (Prelude.Eq, Prelude.Show)
 
 operationResult'code :: OperationResult -> OperationResultCode
 operationResult'code = XDR.xdrDiscriminant
@@ -2008,8 +2267,8 @@ data TransactionResultCode = TRANSACTION_RESULT_SUCCESS
                            | TRANSACTION_RESULT_INSUFFICIENT_FEE
                            | TRANSACTION_RESULT_BAD_AUTH_EXTRA
                            | TRANSACTION_RESULT_INTERNAL_ERROR
-                           deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                     Prelude.Show)
+                             deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                       Prelude.Show)
 
 instance XDR.XDR TransactionResultCode where
   xdrType _ = "TransactionResultCode"
@@ -2057,7 +2316,7 @@ data TransactionResultResult = TransactionResultResult'TRANSACTION_RESULT_SUCCES
                                                                                      OperationResult)}
                              | TransactionResultResult'default{transactionResultResult'code' ::
                                                                !TransactionResultCode}
-                             deriving (Prelude.Eq, Prelude.Show)
+                               deriving (Prelude.Eq, Prelude.Show)
 
 transactionResultResult'code ::
                              TransactionResultResult -> TransactionResultCode
@@ -2096,7 +2355,7 @@ instance XDR.XDRUnion TransactionResultResult where
 data TransactionResult = TransactionResult{transactionResult'feeCharged
                                            :: !Int64,
                                            transactionResult'result :: !TransactionResultResult}
-                       deriving (Prelude.Eq, Prelude.Show)
+                         deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR TransactionResult where
   xdrType _ = "TransactionResult"

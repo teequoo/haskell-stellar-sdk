@@ -20,19 +20,19 @@ toXdrAsset :: Asset -> Maybe X.Asset
 toXdrAsset AssetNative = Just X.Asset'ASSET_TYPE_NATIVE
 toXdrAsset (AssetAlphaNum4 code issuer) =
   X.Asset'ASSET_TYPE_CREDIT_ALPHANUM4
-  <$> lengthArray (encodeUtf8 code)
-  <*> toXdrAccount issuer
+  <$> (X.AlphaNum4 <$> lengthArray (encodeUtf8 code) <*> toXdrAccount issuer)
 toXdrAsset (AssetAlphaNum12 code issuer) =
   X.Asset'ASSET_TYPE_CREDIT_ALPHANUM12
-  <$> lengthArray (encodeUtf8 code)
-  <*> toXdrAccount issuer
+  <$> (X.AlphaNum12 <$> lengthArray (encodeUtf8 code) <*> toXdrAccount issuer)
 
 toXdrAsset' :: Asset -> X.Asset
 toXdrAsset' AssetNative = X.Asset'ASSET_TYPE_NATIVE
 toXdrAsset' (AssetAlphaNum4 code issuer) =
-  X.Asset'ASSET_TYPE_CREDIT_ALPHANUM4 (lengthArray' $ encodeUtf8 code) (toXdrAccount' issuer)
+  X.Asset'ASSET_TYPE_CREDIT_ALPHANUM4 $
+  X.AlphaNum4 (lengthArray' $ encodeUtf8 code) (toXdrAccount' issuer)
 toXdrAsset' (AssetAlphaNum12 code issuer) =
-  X.Asset'ASSET_TYPE_CREDIT_ALPHANUM12 (lengthArray' $ encodeUtf8 code) (toXdrAccount' issuer)
+  X.Asset'ASSET_TYPE_CREDIT_ALPHANUM12 $
+  X.AlphaNum12 (lengthArray' $ encodeUtf8 code) (toXdrAccount' issuer)
 
 toXdrAccount :: T.Text -> Maybe X.AccountID
 toXdrAccount =

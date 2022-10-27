@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Network.Stellar.Builder
     ( TransactionBuilder(..)

@@ -233,9 +233,14 @@ type DataValue = XDR.Opaque 64
 
 type PoolID = Hash
 
+type AssetCode4 = XDR.FixedOpaque 4
+
+type AssetCode12 = XDR.FixedOpaque 12
+
 data AssetType = ASSET_TYPE_NATIVE
                | ASSET_TYPE_CREDIT_ALPHANUM4
                | ASSET_TYPE_CREDIT_ALPHANUM12
+               | ASSET_TYPE_POOL_SHARE
                  deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
                            Prelude.Show)
 
@@ -248,18 +253,73 @@ instance XDR.XDREnum AssetType where
   xdrFromEnum ASSET_TYPE_NATIVE = 0
   xdrFromEnum ASSET_TYPE_CREDIT_ALPHANUM4 = 1
   xdrFromEnum ASSET_TYPE_CREDIT_ALPHANUM12 = 2
+  xdrFromEnum ASSET_TYPE_POOL_SHARE = 3
   xdrToEnum 0 = Prelude.return ASSET_TYPE_NATIVE
   xdrToEnum 1 = Prelude.return ASSET_TYPE_CREDIT_ALPHANUM4
   xdrToEnum 2 = Prelude.return ASSET_TYPE_CREDIT_ALPHANUM12
+  xdrToEnum 3 = Prelude.return ASSET_TYPE_POOL_SHARE
   xdrToEnum _ = Prelude.fail "invalid AssetType"
 
+data AssetCode = AssetCode'ASSET_TYPE_CREDIT_ALPHANUM4{assetCode'assetCode4
+                                                       :: !AssetCode4}
+               | AssetCode'ASSET_TYPE_CREDIT_ALPHANUM12{assetCode'assetCode12 ::
+                                                        !AssetCode12}
+                 deriving (Prelude.Eq, Prelude.Show)
+
+assetCode'type :: AssetCode -> AssetType
+assetCode'type = XDR.xdrDiscriminant
+
+instance XDR.XDR AssetCode where
+  xdrType _ = "AssetCode"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion AssetCode where
+  type XDRDiscriminant AssetCode = AssetType
+  xdrSplitUnion _x@AssetCode'ASSET_TYPE_CREDIT_ALPHANUM4{}
+    = (1, XDR.xdrPut (assetCode'assetCode4 _x))
+  xdrSplitUnion _x@AssetCode'ASSET_TYPE_CREDIT_ALPHANUM12{}
+    = (2, XDR.xdrPut (assetCode'assetCode12 _x))
+  xdrGetUnionArm 1
+    = Control.Applicative.pure AssetCode'ASSET_TYPE_CREDIT_ALPHANUM4
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 2
+    = Control.Applicative.pure AssetCode'ASSET_TYPE_CREDIT_ALPHANUM12
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c = Prelude.fail "invalid AssetCode discriminant"
+
+data AlphaNum4 = AlphaNum4{alphaNum4'assetCode :: !AssetCode4,
+                           alphaNum4'issuer :: !AccountID}
+                 deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR AlphaNum4 where
+  xdrType _ = "AlphaNum4"
+  xdrPut _x
+    = XDR.xdrPut (alphaNum4'assetCode _x) Control.Applicative.*>
+        XDR.xdrPut (alphaNum4'issuer _x)
+  xdrGet
+    = Control.Applicative.pure AlphaNum4 Control.Applicative.<*>
+        XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data AlphaNum12 = AlphaNum12{alphaNum12'assetCode :: !AssetCode12,
+                             alphaNum12'issuer :: !AccountID}
+                  deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR AlphaNum12 where
+  xdrType _ = "AlphaNum12"
+  xdrPut _x
+    = XDR.xdrPut (alphaNum12'assetCode _x) Control.Applicative.*>
+        XDR.xdrPut (alphaNum12'issuer _x)
+  xdrGet
+    = Control.Applicative.pure AlphaNum12 Control.Applicative.<*>
+        XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
 data Asset = Asset'ASSET_TYPE_NATIVE{}
-           | Asset'ASSET_TYPE_CREDIT_ALPHANUM4{asset'alphaNum4'assetCode ::
-                                               !(XDR.FixedOpaque 4),
-                                               asset'alphaNum4'issuer :: !AccountID}
-           | Asset'ASSET_TYPE_CREDIT_ALPHANUM12{asset'alphaNum12'assetCode ::
-                                                !(XDR.FixedOpaque 12),
-                                                asset'alphaNum12'issuer :: !AccountID}
+           | Asset'ASSET_TYPE_CREDIT_ALPHANUM4{asset'alphaNum4 :: !AlphaNum4}
+           | Asset'ASSET_TYPE_CREDIT_ALPHANUM12{asset'alphaNum12 ::
+                                                !AlphaNum12}
              deriving (Prelude.Eq, Prelude.Show)
 
 asset'type :: Asset -> AssetType
@@ -275,21 +335,15 @@ instance XDR.XDRUnion Asset where
   xdrSplitUnion _x@Asset'ASSET_TYPE_NATIVE{}
     = (0, Control.Applicative.pure ())
   xdrSplitUnion _x@Asset'ASSET_TYPE_CREDIT_ALPHANUM4{}
-    = (1,
-       XDR.xdrPut (asset'alphaNum4'assetCode _x) Control.Applicative.*>
-         XDR.xdrPut (asset'alphaNum4'issuer _x))
+    = (1, XDR.xdrPut (asset'alphaNum4 _x))
   xdrSplitUnion _x@Asset'ASSET_TYPE_CREDIT_ALPHANUM12{}
-    = (2,
-       XDR.xdrPut (asset'alphaNum12'assetCode _x) Control.Applicative.*>
-         XDR.xdrPut (asset'alphaNum12'issuer _x))
+    = (2, XDR.xdrPut (asset'alphaNum12 _x))
   xdrGetUnionArm 0 = Control.Applicative.pure Asset'ASSET_TYPE_NATIVE
   xdrGetUnionArm 1
     = Control.Applicative.pure Asset'ASSET_TYPE_CREDIT_ALPHANUM4
         Control.Applicative.<*> XDR.xdrGet
-        Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 2
     = Control.Applicative.pure Asset'ASSET_TYPE_CREDIT_ALPHANUM12
-        Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm _c = Prelude.fail "invalid Asset discriminant"
 
@@ -332,6 +386,8 @@ data LedgerEntryType = ACCOUNT
                      | TRUSTLINE
                      | OFFER
                      | DATA
+                     | CLAIMABLE_BALANCE
+                     | LIQUIDITY_POOL
                        deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
                                  Prelude.Show)
 
@@ -345,10 +401,14 @@ instance XDR.XDREnum LedgerEntryType where
   xdrFromEnum TRUSTLINE = 1
   xdrFromEnum OFFER = 2
   xdrFromEnum DATA = 3
+  xdrFromEnum CLAIMABLE_BALANCE = 4
+  xdrFromEnum LIQUIDITY_POOL = 5
   xdrToEnum 0 = Prelude.return ACCOUNT
   xdrToEnum 1 = Prelude.return TRUSTLINE
   xdrToEnum 2 = Prelude.return OFFER
   xdrToEnum 3 = Prelude.return DATA
+  xdrToEnum 4 = Prelude.return CLAIMABLE_BALANCE
+  xdrToEnum 5 = Prelude.return LIQUIDITY_POOL
   xdrToEnum _ = Prelude.fail "invalid LedgerEntryType"
 
 data Signer = Signer{signer'key :: !SignerKey,
@@ -435,6 +495,49 @@ instance XDR.XDREnum TrustLineFlags where
   xdrToEnum 1 = Prelude.return AUTHORIZED_FLAG
   xdrToEnum _ = Prelude.fail "invalid TrustLineFlags"
 
+data TrustLineAsset = TrustLineAsset'ASSET_TYPE_NATIVE{}
+                    | TrustLineAsset'ASSET_TYPE_CREDIT_ALPHANUM4{trustLineAsset'alphaNum4
+                                                                 :: !AlphaNum4}
+                    | TrustLineAsset'ASSET_TYPE_CREDIT_ALPHANUM12{trustLineAsset'alphaNum12
+                                                                  :: !AlphaNum12}
+                    | TrustLineAsset'ASSET_TYPE_POOL_SHARE{trustLineAsset'liquidityPoolID
+                                                           :: !PoolID}
+                      deriving (Prelude.Eq, Prelude.Show)
+
+trustLineAsset'type :: TrustLineAsset -> AssetType
+trustLineAsset'type = XDR.xdrDiscriminant
+
+instance XDR.XDR TrustLineAsset where
+  xdrType _ = "TrustLineAsset"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion TrustLineAsset where
+  type XDRDiscriminant TrustLineAsset = AssetType
+  xdrSplitUnion _x@TrustLineAsset'ASSET_TYPE_NATIVE{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion _x@TrustLineAsset'ASSET_TYPE_CREDIT_ALPHANUM4{}
+    = (1, XDR.xdrPut (trustLineAsset'alphaNum4 _x))
+  xdrSplitUnion _x@TrustLineAsset'ASSET_TYPE_CREDIT_ALPHANUM12{}
+    = (2, XDR.xdrPut (trustLineAsset'alphaNum12 _x))
+  xdrSplitUnion _x@TrustLineAsset'ASSET_TYPE_POOL_SHARE{}
+    = (3, XDR.xdrPut (trustLineAsset'liquidityPoolID _x))
+  xdrGetUnionArm 0
+    = Control.Applicative.pure TrustLineAsset'ASSET_TYPE_NATIVE
+  xdrGetUnionArm 1
+    = Control.Applicative.pure
+        TrustLineAsset'ASSET_TYPE_CREDIT_ALPHANUM4
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 2
+    = Control.Applicative.pure
+        TrustLineAsset'ASSET_TYPE_CREDIT_ALPHANUM12
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 3
+    = Control.Applicative.pure TrustLineAsset'ASSET_TYPE_POOL_SHARE
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid TrustLineAsset discriminant"
+
 data TrustLineEntry = TrustLineEntry{trustLineEntry'accountID ::
                                      !AccountID,
                                      trustLineEntry'asset :: !Asset,
@@ -515,6 +618,172 @@ instance XDR.XDR DataEntry where
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
+data ClaimPredicateType = CLAIM_PREDICATE_UNCONDITIONAL
+                        | CLAIM_PREDICATE_AND
+                        | CLAIM_PREDICATE_OR
+                        | CLAIM_PREDICATE_NOT
+                        | CLAIM_PREDICATE_BEFORE_ABSOLUTE_TIME
+                        | CLAIM_PREDICATE_BEFORE_RELATIVE_TIME
+                          deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                    Prelude.Show)
+
+instance XDR.XDR ClaimPredicateType where
+  xdrType _ = "ClaimPredicateType"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum ClaimPredicateType where
+  xdrFromEnum CLAIM_PREDICATE_UNCONDITIONAL = 0
+  xdrFromEnum CLAIM_PREDICATE_AND = 1
+  xdrFromEnum CLAIM_PREDICATE_OR = 2
+  xdrFromEnum CLAIM_PREDICATE_NOT = 3
+  xdrFromEnum CLAIM_PREDICATE_BEFORE_ABSOLUTE_TIME = 4
+  xdrFromEnum CLAIM_PREDICATE_BEFORE_RELATIVE_TIME = 5
+  xdrToEnum 0 = Prelude.return CLAIM_PREDICATE_UNCONDITIONAL
+  xdrToEnum 1 = Prelude.return CLAIM_PREDICATE_AND
+  xdrToEnum 2 = Prelude.return CLAIM_PREDICATE_OR
+  xdrToEnum 3 = Prelude.return CLAIM_PREDICATE_NOT
+  xdrToEnum 4 = Prelude.return CLAIM_PREDICATE_BEFORE_ABSOLUTE_TIME
+  xdrToEnum 5 = Prelude.return CLAIM_PREDICATE_BEFORE_RELATIVE_TIME
+  xdrToEnum _ = Prelude.fail "invalid ClaimPredicateType"
+
+data ClaimPredicate = ClaimPredicate'CLAIM_PREDICATE_UNCONDITIONAL{}
+                    | ClaimPredicate'CLAIM_PREDICATE_AND{claimPredicate'andPredicates
+                                                         :: !(XDR.Array 2 ClaimPredicate)}
+                    | ClaimPredicate'CLAIM_PREDICATE_OR{claimPredicate'orPredicates ::
+                                                        !(XDR.Array 2 ClaimPredicate)}
+                    | ClaimPredicate'CLAIM_PREDICATE_NOT{claimPredicate'notPredicate ::
+                                                         !(XDR.Optional ClaimPredicate)}
+                    | ClaimPredicate'CLAIM_PREDICATE_BEFORE_ABSOLUTE_TIME{claimPredicate'absBefore
+                                                                          :: !Int64}
+                    | ClaimPredicate'CLAIM_PREDICATE_BEFORE_RELATIVE_TIME{claimPredicate'relBefore
+                                                                          :: !Int64}
+                      deriving (Prelude.Eq, Prelude.Show)
+
+claimPredicate'type :: ClaimPredicate -> ClaimPredicateType
+claimPredicate'type = XDR.xdrDiscriminant
+
+instance XDR.XDR ClaimPredicate where
+  xdrType _ = "ClaimPredicate"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion ClaimPredicate where
+  type XDRDiscriminant ClaimPredicate = ClaimPredicateType
+  xdrSplitUnion _x@ClaimPredicate'CLAIM_PREDICATE_UNCONDITIONAL{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion _x@ClaimPredicate'CLAIM_PREDICATE_AND{}
+    = (1, XDR.xdrPut (claimPredicate'andPredicates _x))
+  xdrSplitUnion _x@ClaimPredicate'CLAIM_PREDICATE_OR{}
+    = (2, XDR.xdrPut (claimPredicate'orPredicates _x))
+  xdrSplitUnion _x@ClaimPredicate'CLAIM_PREDICATE_NOT{}
+    = (3, XDR.xdrPut (claimPredicate'notPredicate _x))
+  xdrSplitUnion
+    _x@ClaimPredicate'CLAIM_PREDICATE_BEFORE_ABSOLUTE_TIME{}
+    = (4, XDR.xdrPut (claimPredicate'absBefore _x))
+  xdrSplitUnion
+    _x@ClaimPredicate'CLAIM_PREDICATE_BEFORE_RELATIVE_TIME{}
+    = (5, XDR.xdrPut (claimPredicate'relBefore _x))
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        ClaimPredicate'CLAIM_PREDICATE_UNCONDITIONAL
+  xdrGetUnionArm 1
+    = Control.Applicative.pure ClaimPredicate'CLAIM_PREDICATE_AND
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 2
+    = Control.Applicative.pure ClaimPredicate'CLAIM_PREDICATE_OR
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 3
+    = Control.Applicative.pure ClaimPredicate'CLAIM_PREDICATE_NOT
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 4
+    = Control.Applicative.pure
+        ClaimPredicate'CLAIM_PREDICATE_BEFORE_ABSOLUTE_TIME
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 5
+    = Control.Applicative.pure
+        ClaimPredicate'CLAIM_PREDICATE_BEFORE_RELATIVE_TIME
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid ClaimPredicate discriminant"
+
+data ClaimantType = CLAIMANT_TYPE_V0
+                    deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                              Prelude.Show)
+
+instance XDR.XDR ClaimantType where
+  xdrType _ = "ClaimantType"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum ClaimantType where
+  xdrFromEnum CLAIMANT_TYPE_V0 = 0
+  xdrToEnum 0 = Prelude.return CLAIMANT_TYPE_V0
+  xdrToEnum _ = Prelude.fail "invalid ClaimantType"
+
+data Claimant = Claimant'CLAIMANT_TYPE_V0{claimant'v0'destination
+                                          :: !AccountID,
+                                          claimant'v0'predicate :: !ClaimPredicate}
+                deriving (Prelude.Eq, Prelude.Show)
+
+claimant'type :: Claimant -> ClaimantType
+claimant'type = XDR.xdrDiscriminant
+
+instance XDR.XDR Claimant where
+  xdrType _ = "Claimant"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion Claimant where
+  type XDRDiscriminant Claimant = ClaimantType
+  xdrSplitUnion _x@Claimant'CLAIMANT_TYPE_V0{}
+    = (0,
+       XDR.xdrPut (claimant'v0'destination _x) Control.Applicative.*>
+         XDR.xdrPut (claimant'v0'predicate _x))
+  xdrGetUnionArm 0
+    = Control.Applicative.pure Claimant'CLAIMANT_TYPE_V0
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c = Prelude.fail "invalid Claimant discriminant"
+
+data ClaimableBalanceIDType = CLAIMABLE_BALANCE_ID_TYPE_V0
+                              deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                        Prelude.Show)
+
+instance XDR.XDR ClaimableBalanceIDType where
+  xdrType _ = "ClaimableBalanceIDType"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum ClaimableBalanceIDType where
+  xdrFromEnum CLAIMABLE_BALANCE_ID_TYPE_V0 = 0
+  xdrToEnum 0 = Prelude.return CLAIMABLE_BALANCE_ID_TYPE_V0
+  xdrToEnum _ = Prelude.fail "invalid ClaimableBalanceIDType"
+
+data ClaimableBalanceID = ClaimableBalanceID'CLAIMABLE_BALANCE_ID_TYPE_V0{claimableBalanceID'v0
+                                                                          :: !Hash}
+                          deriving (Prelude.Eq, Prelude.Show)
+
+claimableBalanceID'type ::
+                        ClaimableBalanceID -> ClaimableBalanceIDType
+claimableBalanceID'type = XDR.xdrDiscriminant
+
+instance XDR.XDR ClaimableBalanceID where
+  xdrType _ = "ClaimableBalanceID"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion ClaimableBalanceID where
+  type XDRDiscriminant ClaimableBalanceID = ClaimableBalanceIDType
+  xdrSplitUnion _x@ClaimableBalanceID'CLAIMABLE_BALANCE_ID_TYPE_V0{}
+    = (0, XDR.xdrPut (claimableBalanceID'v0 _x))
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        ClaimableBalanceID'CLAIMABLE_BALANCE_ID_TYPE_V0
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid ClaimableBalanceID discriminant"
+
 data LedgerEntryData = LedgerEntryData'ACCOUNT{ledgerEntryData'account
                                                :: !AccountEntry}
                      | LedgerEntryData'TRUSTLINE{ledgerEntryData'trustLine ::
@@ -571,6 +840,71 @@ instance XDR.XDR LedgerEntry where
         XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
+data LedgerKey = LedgerKey'ACCOUNT{ledgerKey'account'accountID ::
+                                   !AccountID}
+               | LedgerKey'TRUSTLINE{ledgerKey'trustLine'accountID :: !AccountID,
+                                     ledgerKey'trustLine'asset :: !TrustLineAsset}
+               | LedgerKey'OFFER{ledgerKey'offer'sellerID :: !AccountID,
+                                 ledgerKey'offer'offerID :: !Int64}
+               | LedgerKey'DATA{ledgerKey'data'accountID :: !AccountID,
+                                ledgerKey'data'dataName :: !String64}
+               | LedgerKey'CLAIMABLE_BALANCE{ledgerKey'claimableBalance'balanceID
+                                             :: !ClaimableBalanceID}
+               | LedgerKey'LIQUIDITY_POOL{ledgerKey'liquidityPool'liquidityPoolID
+                                          :: !PoolID}
+                 deriving (Prelude.Eq, Prelude.Show)
+
+ledgerKey'type :: LedgerKey -> LedgerEntryType
+ledgerKey'type = XDR.xdrDiscriminant
+
+instance XDR.XDR LedgerKey where
+  xdrType _ = "LedgerKey"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion LedgerKey where
+  type XDRDiscriminant LedgerKey = LedgerEntryType
+  xdrSplitUnion _x@LedgerKey'ACCOUNT{}
+    = (0, XDR.xdrPut (ledgerKey'account'accountID _x))
+  xdrSplitUnion _x@LedgerKey'TRUSTLINE{}
+    = (1,
+       XDR.xdrPut (ledgerKey'trustLine'accountID _x)
+         Control.Applicative.*> XDR.xdrPut (ledgerKey'trustLine'asset _x))
+  xdrSplitUnion _x@LedgerKey'OFFER{}
+    = (2,
+       XDR.xdrPut (ledgerKey'offer'sellerID _x) Control.Applicative.*>
+         XDR.xdrPut (ledgerKey'offer'offerID _x))
+  xdrSplitUnion _x@LedgerKey'DATA{}
+    = (3,
+       XDR.xdrPut (ledgerKey'data'accountID _x) Control.Applicative.*>
+         XDR.xdrPut (ledgerKey'data'dataName _x))
+  xdrSplitUnion _x@LedgerKey'CLAIMABLE_BALANCE{}
+    = (4, XDR.xdrPut (ledgerKey'claimableBalance'balanceID _x))
+  xdrSplitUnion _x@LedgerKey'LIQUIDITY_POOL{}
+    = (5, XDR.xdrPut (ledgerKey'liquidityPool'liquidityPoolID _x))
+  xdrGetUnionArm 0
+    = Control.Applicative.pure LedgerKey'ACCOUNT
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 1
+    = Control.Applicative.pure LedgerKey'TRUSTLINE
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 2
+    = Control.Applicative.pure LedgerKey'OFFER Control.Applicative.<*>
+        XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 3
+    = Control.Applicative.pure LedgerKey'DATA Control.Applicative.<*>
+        XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 4
+    = Control.Applicative.pure LedgerKey'CLAIMABLE_BALANCE
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 5
+    = Control.Applicative.pure LedgerKey'LIQUIDITY_POOL
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c = Prelude.fail "invalid LedgerKey discriminant"
+
 data EnvelopeType = ENVELOPE_TYPE_TX_V0
                   | ENVELOPE_TYPE_SCP
                   | ENVELOPE_TYPE_TX
@@ -623,15 +957,28 @@ instance XDR.XDR DecoratedSignature where
 
 data OperationType = CREATE_ACCOUNT
                    | PAYMENT
-                   | PATH_PAYMENT
-                   | MANAGE_OFFER
-                   | CREATE_PASSIVE_OFFER
+                   | PATH_PAYMENT_STRICT_RECEIVE
+                   | MANAGE_SELL_OFFER
+                   | CREATE_PASSIVE_SELL_OFFER
                    | SET_OPTIONS
                    | CHANGE_TRUST
                    | ALLOW_TRUST
                    | ACCOUNT_MERGE
                    | INFLATION
                    | MANAGE_DATA
+                   | BUMP_SEQUENCE
+                   | MANAGE_BUY_OFFER
+                   | PATH_PAYMENT_STRICT_SEND
+                   | CREATE_CLAIMABLE_BALANCE
+                   | CLAIM_CLAIMABLE_BALANCE
+                   | BEGIN_SPONSORING_FUTURE_RESERVES
+                   | END_SPONSORING_FUTURE_RESERVES
+                   | REVOKE_SPONSORSHIP
+                   | CLAWBACK
+                   | CLAWBACK_CLAIMABLE_BALANCE
+                   | SET_TRUST_LINE_FLAGS
+                   | LIQUIDITY_POOL_DEPOSIT
+                   | LIQUIDITY_POOL_WITHDRAW
                      deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
                                Prelude.Show)
 
@@ -643,26 +990,52 @@ instance XDR.XDR OperationType where
 instance XDR.XDREnum OperationType where
   xdrFromEnum CREATE_ACCOUNT = 0
   xdrFromEnum PAYMENT = 1
-  xdrFromEnum PATH_PAYMENT = 2
-  xdrFromEnum MANAGE_OFFER = 3
-  xdrFromEnum CREATE_PASSIVE_OFFER = 4
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE = 2
+  xdrFromEnum MANAGE_SELL_OFFER = 3
+  xdrFromEnum CREATE_PASSIVE_SELL_OFFER = 4
   xdrFromEnum SET_OPTIONS = 5
   xdrFromEnum CHANGE_TRUST = 6
   xdrFromEnum ALLOW_TRUST = 7
   xdrFromEnum ACCOUNT_MERGE = 8
   xdrFromEnum INFLATION = 9
   xdrFromEnum MANAGE_DATA = 10
+  xdrFromEnum BUMP_SEQUENCE = 11
+  xdrFromEnum MANAGE_BUY_OFFER = 12
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND = 13
+  xdrFromEnum CREATE_CLAIMABLE_BALANCE = 14
+  xdrFromEnum CLAIM_CLAIMABLE_BALANCE = 15
+  xdrFromEnum BEGIN_SPONSORING_FUTURE_RESERVES = 16
+  xdrFromEnum END_SPONSORING_FUTURE_RESERVES = 17
+  xdrFromEnum REVOKE_SPONSORSHIP = 18
+  xdrFromEnum CLAWBACK = 19
+  xdrFromEnum CLAWBACK_CLAIMABLE_BALANCE = 20
+  xdrFromEnum SET_TRUST_LINE_FLAGS = 21
+  xdrFromEnum LIQUIDITY_POOL_DEPOSIT = 22
+  xdrFromEnum LIQUIDITY_POOL_WITHDRAW = 23
   xdrToEnum 0 = Prelude.return CREATE_ACCOUNT
   xdrToEnum 1 = Prelude.return PAYMENT
-  xdrToEnum 2 = Prelude.return PATH_PAYMENT
-  xdrToEnum 3 = Prelude.return MANAGE_OFFER
-  xdrToEnum 4 = Prelude.return CREATE_PASSIVE_OFFER
+  xdrToEnum 2 = Prelude.return PATH_PAYMENT_STRICT_RECEIVE
+  xdrToEnum 3 = Prelude.return MANAGE_SELL_OFFER
+  xdrToEnum 4 = Prelude.return CREATE_PASSIVE_SELL_OFFER
   xdrToEnum 5 = Prelude.return SET_OPTIONS
   xdrToEnum 6 = Prelude.return CHANGE_TRUST
   xdrToEnum 7 = Prelude.return ALLOW_TRUST
   xdrToEnum 8 = Prelude.return ACCOUNT_MERGE
   xdrToEnum 9 = Prelude.return INFLATION
   xdrToEnum 10 = Prelude.return MANAGE_DATA
+  xdrToEnum 11 = Prelude.return BUMP_SEQUENCE
+  xdrToEnum 12 = Prelude.return MANAGE_BUY_OFFER
+  xdrToEnum 13 = Prelude.return PATH_PAYMENT_STRICT_SEND
+  xdrToEnum 14 = Prelude.return CREATE_CLAIMABLE_BALANCE
+  xdrToEnum 15 = Prelude.return CLAIM_CLAIMABLE_BALANCE
+  xdrToEnum 16 = Prelude.return BEGIN_SPONSORING_FUTURE_RESERVES
+  xdrToEnum 17 = Prelude.return END_SPONSORING_FUTURE_RESERVES
+  xdrToEnum 18 = Prelude.return REVOKE_SPONSORSHIP
+  xdrToEnum 19 = Prelude.return CLAWBACK
+  xdrToEnum 20 = Prelude.return CLAWBACK_CLAIMABLE_BALANCE
+  xdrToEnum 21 = Prelude.return SET_TRUST_LINE_FLAGS
+  xdrToEnum 22 = Prelude.return LIQUIDITY_POOL_DEPOSIT
+  xdrToEnum 23 = Prelude.return LIQUIDITY_POOL_WITHDRAW
   xdrToEnum _ = Prelude.fail "invalid OperationType"
 
 data CreateAccountOp = CreateAccountOp{createAccountOp'destination
@@ -681,7 +1054,7 @@ instance XDR.XDR CreateAccountOp where
         XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
-data PaymentOp = PaymentOp{paymentOp'destination :: !AccountID,
+data PaymentOp = PaymentOp{paymentOp'destination :: !MuxedAccount,
                            paymentOp'asset :: !Asset, paymentOp'amount :: !Int64}
                  deriving (Prelude.Eq, Prelude.Show)
 
@@ -697,70 +1070,143 @@ instance XDR.XDR PaymentOp where
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
-data PathPaymentOp = PathPaymentOp{pathPaymentOp'sendAsset ::
-                                   !Asset,
-                                   pathPaymentOp'sendMax :: !Int64,
-                                   pathPaymentOp'destination :: !AccountID,
-                                   pathPaymentOp'destAsset :: !Asset,
-                                   pathPaymentOp'destAmount :: !Int64,
-                                   pathPaymentOp'path :: !(XDR.Array 5 Asset)}
-                     deriving (Prelude.Eq, Prelude.Show)
+data PathPaymentStrictReceiveOp = PathPaymentStrictReceiveOp{pathPaymentStrictReceiveOp'sendAsset
+                                                             :: !Asset,
+                                                             pathPaymentStrictReceiveOp'sendMax ::
+                                                             !Int64,
+                                                             pathPaymentStrictReceiveOp'destination
+                                                             :: !MuxedAccount,
+                                                             pathPaymentStrictReceiveOp'destAsset ::
+                                                             !Asset,
+                                                             pathPaymentStrictReceiveOp'destAmount
+                                                             :: !Int64,
+                                                             pathPaymentStrictReceiveOp'path ::
+                                                             !(XDR.Array 5 Asset)}
+                                  deriving (Prelude.Eq, Prelude.Show)
 
-instance XDR.XDR PathPaymentOp where
-  xdrType _ = "PathPaymentOp"
+instance XDR.XDR PathPaymentStrictReceiveOp where
+  xdrType _ = "PathPaymentStrictReceiveOp"
   xdrPut _x
-    = XDR.xdrPut (pathPaymentOp'sendAsset _x) Control.Applicative.*>
-        XDR.xdrPut (pathPaymentOp'sendMax _x)
-        Control.Applicative.*> XDR.xdrPut (pathPaymentOp'destination _x)
-        Control.Applicative.*> XDR.xdrPut (pathPaymentOp'destAsset _x)
-        Control.Applicative.*> XDR.xdrPut (pathPaymentOp'destAmount _x)
-        Control.Applicative.*> XDR.xdrPut (pathPaymentOp'path _x)
+    = XDR.xdrPut (pathPaymentStrictReceiveOp'sendAsset _x)
+        Control.Applicative.*>
+        XDR.xdrPut (pathPaymentStrictReceiveOp'sendMax _x)
+        Control.Applicative.*>
+        XDR.xdrPut (pathPaymentStrictReceiveOp'destination _x)
+        Control.Applicative.*>
+        XDR.xdrPut (pathPaymentStrictReceiveOp'destAsset _x)
+        Control.Applicative.*>
+        XDR.xdrPut (pathPaymentStrictReceiveOp'destAmount _x)
+        Control.Applicative.*>
+        XDR.xdrPut (pathPaymentStrictReceiveOp'path _x)
   xdrGet
-    = Control.Applicative.pure PathPaymentOp Control.Applicative.<*>
+    = Control.Applicative.pure PathPaymentStrictReceiveOp
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data PathPaymentStrictSendOp = PathPaymentStrictSendOp{pathPaymentStrictSendOp'sendAsset
+                                                       :: !Asset,
+                                                       pathPaymentStrictSendOp'sendAmount :: !Int64,
+                                                       pathPaymentStrictSendOp'destination ::
+                                                       !MuxedAccount,
+                                                       pathPaymentStrictSendOp'destAsset :: !Asset,
+                                                       pathPaymentStrictSendOp'destMin :: !Int64,
+                                                       pathPaymentStrictSendOp'path ::
+                                                       !(XDR.Array 5 Asset)}
+                               deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR PathPaymentStrictSendOp where
+  xdrType _ = "PathPaymentStrictSendOp"
+  xdrPut _x
+    = XDR.xdrPut (pathPaymentStrictSendOp'sendAsset _x)
+        Control.Applicative.*>
+        XDR.xdrPut (pathPaymentStrictSendOp'sendAmount _x)
+        Control.Applicative.*>
+        XDR.xdrPut (pathPaymentStrictSendOp'destination _x)
+        Control.Applicative.*>
+        XDR.xdrPut (pathPaymentStrictSendOp'destAsset _x)
+        Control.Applicative.*>
+        XDR.xdrPut (pathPaymentStrictSendOp'destMin _x)
+        Control.Applicative.*> XDR.xdrPut (pathPaymentStrictSendOp'path _x)
+  xdrGet
+    = Control.Applicative.pure PathPaymentStrictSendOp
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data ManageSellOfferOp = ManageSellOfferOp{manageSellOfferOp'selling
+                                           :: !Asset,
+                                           manageSellOfferOp'buying :: !Asset,
+                                           manageSellOfferOp'amount :: !Int64,
+                                           manageSellOfferOp'price :: !Price,
+                                           manageSellOfferOp'offerID :: !Int64}
+                         deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR ManageSellOfferOp where
+  xdrType _ = "ManageSellOfferOp"
+  xdrPut _x
+    = XDR.xdrPut (manageSellOfferOp'selling _x) Control.Applicative.*>
+        XDR.xdrPut (manageSellOfferOp'buying _x)
+        Control.Applicative.*> XDR.xdrPut (manageSellOfferOp'amount _x)
+        Control.Applicative.*> XDR.xdrPut (manageSellOfferOp'price _x)
+        Control.Applicative.*> XDR.xdrPut (manageSellOfferOp'offerID _x)
+  xdrGet
+    = Control.Applicative.pure ManageSellOfferOp
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data ManageBuyOfferOp = ManageBuyOfferOp{manageBuyOfferOp'selling
+                                         :: !Asset,
+                                         manageBuyOfferOp'buying :: !Asset,
+                                         manageBuyOfferOp'buyAmount :: !Int64,
+                                         manageBuyOfferOp'price :: !Price,
+                                         manageBuyOfferOp'offerID :: !Int64}
+                        deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR ManageBuyOfferOp where
+  xdrType _ = "ManageBuyOfferOp"
+  xdrPut _x
+    = XDR.xdrPut (manageBuyOfferOp'selling _x) Control.Applicative.*>
+        XDR.xdrPut (manageBuyOfferOp'buying _x)
+        Control.Applicative.*> XDR.xdrPut (manageBuyOfferOp'buyAmount _x)
+        Control.Applicative.*> XDR.xdrPut (manageBuyOfferOp'price _x)
+        Control.Applicative.*> XDR.xdrPut (manageBuyOfferOp'offerID _x)
+  xdrGet
+    = Control.Applicative.pure ManageBuyOfferOp Control.Applicative.<*>
         XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
-        Control.Applicative.<*> XDR.xdrGet
 
-data ManageOfferOp = ManageOfferOp{manageOfferOp'selling :: !Asset,
-                                   manageOfferOp'buying :: !Asset, manageOfferOp'amount :: !Int64,
-                                   manageOfferOp'price :: !Price, manageOfferOp'offerID :: !Uint64}
-                     deriving (Prelude.Eq, Prelude.Show)
+data CreatePassiveSellOfferOp = CreatePassiveSellOfferOp{createPassiveSellOfferOp'selling
+                                                         :: !Asset,
+                                                         createPassiveSellOfferOp'buying :: !Asset,
+                                                         createPassiveSellOfferOp'amount :: !Int64,
+                                                         createPassiveSellOfferOp'price :: !Price}
+                                deriving (Prelude.Eq, Prelude.Show)
 
-instance XDR.XDR ManageOfferOp where
-  xdrType _ = "ManageOfferOp"
+instance XDR.XDR CreatePassiveSellOfferOp where
+  xdrType _ = "CreatePassiveSellOfferOp"
   xdrPut _x
-    = XDR.xdrPut (manageOfferOp'selling _x) Control.Applicative.*>
-        XDR.xdrPut (manageOfferOp'buying _x)
-        Control.Applicative.*> XDR.xdrPut (manageOfferOp'amount _x)
-        Control.Applicative.*> XDR.xdrPut (manageOfferOp'price _x)
-        Control.Applicative.*> XDR.xdrPut (manageOfferOp'offerID _x)
+    = XDR.xdrPut (createPassiveSellOfferOp'selling _x)
+        Control.Applicative.*>
+        XDR.xdrPut (createPassiveSellOfferOp'buying _x)
+        Control.Applicative.*>
+        XDR.xdrPut (createPassiveSellOfferOp'amount _x)
+        Control.Applicative.*>
+        XDR.xdrPut (createPassiveSellOfferOp'price _x)
   xdrGet
-    = Control.Applicative.pure ManageOfferOp Control.Applicative.<*>
-        XDR.xdrGet
-        Control.Applicative.<*> XDR.xdrGet
-        Control.Applicative.<*> XDR.xdrGet
-        Control.Applicative.<*> XDR.xdrGet
-        Control.Applicative.<*> XDR.xdrGet
-
-data CreatePassiveOfferOp = CreatePassiveOfferOp{createPassiveOfferOp'selling
-                                                 :: !Asset,
-                                                 createPassiveOfferOp'buying :: !Asset,
-                                                 createPassiveOfferOp'amount :: !Int64,
-                                                 createPassiveOfferOp'price :: !Price}
-                            deriving (Prelude.Eq, Prelude.Show)
-
-instance XDR.XDR CreatePassiveOfferOp where
-  xdrType _ = "CreatePassiveOfferOp"
-  xdrPut _x
-    = XDR.xdrPut (createPassiveOfferOp'selling _x)
-        Control.Applicative.*> XDR.xdrPut (createPassiveOfferOp'buying _x)
-        Control.Applicative.*> XDR.xdrPut (createPassiveOfferOp'amount _x)
-        Control.Applicative.*> XDR.xdrPut (createPassiveOfferOp'price _x)
-  xdrGet
-    = Control.Applicative.pure CreatePassiveOfferOp
+    = Control.Applicative.pure CreatePassiveSellOfferOp
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
@@ -880,15 +1326,230 @@ instance XDR.XDR ManageDataOp where
         XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
+data BumpSequenceOp = BumpSequenceOp{bumpSequenceOp'bumpTo ::
+                                     !SequenceNumber}
+                      deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR BumpSequenceOp where
+  xdrType _ = "BumpSequenceOp"
+  xdrPut _x = XDR.xdrPut (bumpSequenceOp'bumpTo _x)
+  xdrGet
+    = Control.Applicative.pure BumpSequenceOp Control.Applicative.<*>
+        XDR.xdrGet
+
+data CreateClaimableBalanceOp = CreateClaimableBalanceOp{createClaimableBalanceOp'asset
+                                                         :: !Asset,
+                                                         createClaimableBalanceOp'amount :: !Int64,
+                                                         createClaimableBalanceOp'claimants ::
+                                                         !(XDR.Array 10 Claimant)}
+                                deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR CreateClaimableBalanceOp where
+  xdrType _ = "CreateClaimableBalanceOp"
+  xdrPut _x
+    = XDR.xdrPut (createClaimableBalanceOp'asset _x)
+        Control.Applicative.*>
+        XDR.xdrPut (createClaimableBalanceOp'amount _x)
+        Control.Applicative.*>
+        XDR.xdrPut (createClaimableBalanceOp'claimants _x)
+  xdrGet
+    = Control.Applicative.pure CreateClaimableBalanceOp
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data ClaimClaimableBalanceOp = ClaimClaimableBalanceOp{claimClaimableBalanceOp'balanceID
+                                                       :: !ClaimableBalanceID}
+                               deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR ClaimClaimableBalanceOp where
+  xdrType _ = "ClaimClaimableBalanceOp"
+  xdrPut _x = XDR.xdrPut (claimClaimableBalanceOp'balanceID _x)
+  xdrGet
+    = Control.Applicative.pure ClaimClaimableBalanceOp
+        Control.Applicative.<*> XDR.xdrGet
+
+data BeginSponsoringFutureReservesOp = BeginSponsoringFutureReservesOp{beginSponsoringFutureReservesOp'sponsoredID
+                                                                       :: !AccountID}
+                                       deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR BeginSponsoringFutureReservesOp where
+  xdrType _ = "BeginSponsoringFutureReservesOp"
+  xdrPut _x
+    = XDR.xdrPut (beginSponsoringFutureReservesOp'sponsoredID _x)
+  xdrGet
+    = Control.Applicative.pure BeginSponsoringFutureReservesOp
+        Control.Applicative.<*> XDR.xdrGet
+
+data RevokeSponsorshipType = REVOKE_SPONSORSHIP_LEDGER_ENTRY
+                           | REVOKE_SPONSORSHIP_SIGNER
+                             deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                       Prelude.Show)
+
+instance XDR.XDR RevokeSponsorshipType where
+  xdrType _ = "RevokeSponsorshipType"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum RevokeSponsorshipType where
+  xdrFromEnum REVOKE_SPONSORSHIP_LEDGER_ENTRY = 0
+  xdrFromEnum REVOKE_SPONSORSHIP_SIGNER = 1
+  xdrToEnum 0 = Prelude.return REVOKE_SPONSORSHIP_LEDGER_ENTRY
+  xdrToEnum 1 = Prelude.return REVOKE_SPONSORSHIP_SIGNER
+  xdrToEnum _ = Prelude.fail "invalid RevokeSponsorshipType"
+
+data RevokeSponsorshipOp = RevokeSponsorshipOp'REVOKE_SPONSORSHIP_LEDGER_ENTRY{revokeSponsorshipOp'ledgerKey
+                                                                               :: !LedgerKey}
+                         | RevokeSponsorshipOp'REVOKE_SPONSORSHIP_SIGNER{revokeSponsorshipOp'signer'accountID
+                                                                         :: !AccountID,
+                                                                         revokeSponsorshipOp'signer'signerKey
+                                                                         :: !SignerKey}
+                           deriving (Prelude.Eq, Prelude.Show)
+
+revokeSponsorshipOp'type ::
+                         RevokeSponsorshipOp -> RevokeSponsorshipType
+revokeSponsorshipOp'type = XDR.xdrDiscriminant
+
+instance XDR.XDR RevokeSponsorshipOp where
+  xdrType _ = "RevokeSponsorshipOp"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion RevokeSponsorshipOp where
+  type XDRDiscriminant RevokeSponsorshipOp = RevokeSponsorshipType
+  xdrSplitUnion
+    _x@RevokeSponsorshipOp'REVOKE_SPONSORSHIP_LEDGER_ENTRY{}
+    = (0, XDR.xdrPut (revokeSponsorshipOp'ledgerKey _x))
+  xdrSplitUnion _x@RevokeSponsorshipOp'REVOKE_SPONSORSHIP_SIGNER{}
+    = (1,
+       XDR.xdrPut (revokeSponsorshipOp'signer'accountID _x)
+         Control.Applicative.*>
+         XDR.xdrPut (revokeSponsorshipOp'signer'signerKey _x))
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        RevokeSponsorshipOp'REVOKE_SPONSORSHIP_LEDGER_ENTRY
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 1
+    = Control.Applicative.pure
+        RevokeSponsorshipOp'REVOKE_SPONSORSHIP_SIGNER
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid RevokeSponsorshipOp discriminant"
+
+data ClawbackOp = ClawbackOp{clawbackOp'asset :: !Asset,
+                             clawbackOp'from :: !MuxedAccount, clawbackOp'amount :: !Int64}
+                  deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR ClawbackOp where
+  xdrType _ = "ClawbackOp"
+  xdrPut _x
+    = XDR.xdrPut (clawbackOp'asset _x) Control.Applicative.*>
+        XDR.xdrPut (clawbackOp'from _x)
+        Control.Applicative.*> XDR.xdrPut (clawbackOp'amount _x)
+  xdrGet
+    = Control.Applicative.pure ClawbackOp Control.Applicative.<*>
+        XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data ClawbackClaimableBalanceOp = ClawbackClaimableBalanceOp{clawbackClaimableBalanceOp'balanceID
+                                                             :: !ClaimableBalanceID}
+                                  deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR ClawbackClaimableBalanceOp where
+  xdrType _ = "ClawbackClaimableBalanceOp"
+  xdrPut _x = XDR.xdrPut (clawbackClaimableBalanceOp'balanceID _x)
+  xdrGet
+    = Control.Applicative.pure ClawbackClaimableBalanceOp
+        Control.Applicative.<*> XDR.xdrGet
+
+data SetTrustLineFlagsOp = SetTrustLineFlagsOp{setTrustLineFlagsOp'trustor
+                                               :: !AccountID,
+                                               setTrustLineFlagsOp'asset :: !Asset,
+                                               setTrustLineFlagsOp'clearFlags :: !Uint32,
+                                               setTrustLineFlagsOp'setFlags :: !Uint32}
+                           deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR SetTrustLineFlagsOp where
+  xdrType _ = "SetTrustLineFlagsOp"
+  xdrPut _x
+    = XDR.xdrPut (setTrustLineFlagsOp'trustor _x)
+        Control.Applicative.*> XDR.xdrPut (setTrustLineFlagsOp'asset _x)
+        Control.Applicative.*>
+        XDR.xdrPut (setTrustLineFlagsOp'clearFlags _x)
+        Control.Applicative.*> XDR.xdrPut (setTrustLineFlagsOp'setFlags _x)
+  xdrGet
+    = Control.Applicative.pure SetTrustLineFlagsOp
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+lIQUIDITY_POOL_FEE_V18 :: Prelude.Integral a => a
+lIQUIDITY_POOL_FEE_V18 = 30
+
+data LiquidityPoolDepositOp = LiquidityPoolDepositOp{liquidityPoolDepositOp'liquidityPoolID
+                                                     :: !PoolID,
+                                                     liquidityPoolDepositOp'maxAmountA :: !Int64,
+                                                     liquidityPoolDepositOp'maxAmountB :: !Int64,
+                                                     liquidityPoolDepositOp'minPrice :: !Price,
+                                                     liquidityPoolDepositOp'maxPrice :: !Price}
+                              deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR LiquidityPoolDepositOp where
+  xdrType _ = "LiquidityPoolDepositOp"
+  xdrPut _x
+    = XDR.xdrPut (liquidityPoolDepositOp'liquidityPoolID _x)
+        Control.Applicative.*>
+        XDR.xdrPut (liquidityPoolDepositOp'maxAmountA _x)
+        Control.Applicative.*>
+        XDR.xdrPut (liquidityPoolDepositOp'maxAmountB _x)
+        Control.Applicative.*>
+        XDR.xdrPut (liquidityPoolDepositOp'minPrice _x)
+        Control.Applicative.*>
+        XDR.xdrPut (liquidityPoolDepositOp'maxPrice _x)
+  xdrGet
+    = Control.Applicative.pure LiquidityPoolDepositOp
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data LiquidityPoolWithdrawOp = LiquidityPoolWithdrawOp{liquidityPoolWithdrawOp'liquidityPoolID
+                                                       :: !PoolID,
+                                                       liquidityPoolWithdrawOp'amount :: !Int64,
+                                                       liquidityPoolWithdrawOp'minAmountA :: !Int64,
+                                                       liquidityPoolWithdrawOp'minAmountB :: !Int64}
+                               deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR LiquidityPoolWithdrawOp where
+  xdrType _ = "LiquidityPoolWithdrawOp"
+  xdrPut _x
+    = XDR.xdrPut (liquidityPoolWithdrawOp'liquidityPoolID _x)
+        Control.Applicative.*>
+        XDR.xdrPut (liquidityPoolWithdrawOp'amount _x)
+        Control.Applicative.*>
+        XDR.xdrPut (liquidityPoolWithdrawOp'minAmountA _x)
+        Control.Applicative.*>
+        XDR.xdrPut (liquidityPoolWithdrawOp'minAmountB _x)
+  xdrGet
+    = Control.Applicative.pure LiquidityPoolWithdrawOp
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
 data OperationBody = OperationBody'CREATE_ACCOUNT{operationBody'createAccountOp
                                                   :: !CreateAccountOp}
                    | OperationBody'PAYMENT{operationBody'paymentOp :: !PaymentOp}
-                   | OperationBody'PATH_PAYMENT{operationBody'pathPaymentOp ::
-                                                !PathPaymentOp}
-                   | OperationBody'MANAGE_OFFER{operationBody'manageOfferOp ::
-                                                !ManageOfferOp}
-                   | OperationBody'CREATE_PASSIVE_OFFER{operationBody'createPassiveOfferOp
-                                                        :: !CreatePassiveOfferOp}
+                   | OperationBody'PATH_PAYMENT_STRICT_RECEIVE{operationBody'pathPaymentStrictReceiveOp
+                                                               :: !PathPaymentStrictReceiveOp}
+                   | OperationBody'MANAGE_SELL_OFFER{operationBody'manageSellOfferOp
+                                                     :: !ManageSellOfferOp}
+                   | OperationBody'CREATE_PASSIVE_SELL_OFFER{operationBody'createPassiveSellOfferOp
+                                                             :: !CreatePassiveSellOfferOp}
                    | OperationBody'SET_OPTIONS{operationBody'setOptionsOp ::
                                                !SetOptionsOp}
                    | OperationBody'CHANGE_TRUST{operationBody'changeTrustOp ::
@@ -896,10 +1557,35 @@ data OperationBody = OperationBody'CREATE_ACCOUNT{operationBody'createAccountOp
                    | OperationBody'ALLOW_TRUST{operationBody'allowTrustOp ::
                                                !AllowTrustOp}
                    | OperationBody'ACCOUNT_MERGE{operationBody'destination ::
-                                                 !AccountID}
+                                                 !MuxedAccount}
                    | OperationBody'INFLATION{}
                    | OperationBody'MANAGE_DATA{operationBody'manageDataOp ::
                                                !ManageDataOp}
+                   | OperationBody'BUMP_SEQUENCE{operationBody'bumpSequenceOp ::
+                                                 !BumpSequenceOp}
+                   | OperationBody'MANAGE_BUY_OFFER{operationBody'manageBuyOfferOp ::
+                                                    !ManageBuyOfferOp}
+                   | OperationBody'PATH_PAYMENT_STRICT_SEND{operationBody'pathPaymentStrictSendOp
+                                                            :: !PathPaymentStrictSendOp}
+                   | OperationBody'CREATE_CLAIMABLE_BALANCE{operationBody'createClaimableBalanceOp
+                                                            :: !CreateClaimableBalanceOp}
+                   | OperationBody'CLAIM_CLAIMABLE_BALANCE{operationBody'claimClaimableBalanceOp
+                                                           :: !ClaimClaimableBalanceOp}
+                   | OperationBody'BEGIN_SPONSORING_FUTURE_RESERVES{operationBody'beginSponsoringFutureReservesOp
+                                                                    ::
+                                                                    !BeginSponsoringFutureReservesOp}
+                   | OperationBody'END_SPONSORING_FUTURE_RESERVES{}
+                   | OperationBody'REVOKE_SPONSORSHIP{operationBody'revokeSponsorshipOp
+                                                      :: !RevokeSponsorshipOp}
+                   | OperationBody'CLAWBACK{operationBody'clawbackOp :: !ClawbackOp}
+                   | OperationBody'CLAWBACK_CLAIMABLE_BALANCE{operationBody'clawbackClaimableBalanceOp
+                                                              :: !ClawbackClaimableBalanceOp}
+                   | OperationBody'SET_TRUST_LINE_FLAGS{operationBody'setTrustLineFlagsOp
+                                                        :: !SetTrustLineFlagsOp}
+                   | OperationBody'LIQUIDITY_POOL_DEPOSIT{operationBody'liquidityPoolDepositOp
+                                                          :: !LiquidityPoolDepositOp}
+                   | OperationBody'LIQUIDITY_POOL_WITHDRAW{operationBody'liquidityPoolWithdrawOp
+                                                           :: !LiquidityPoolWithdrawOp}
                      deriving (Prelude.Eq, Prelude.Show)
 
 operationBody'type :: OperationBody -> OperationType
@@ -916,12 +1602,12 @@ instance XDR.XDRUnion OperationBody where
     = (0, XDR.xdrPut (operationBody'createAccountOp _x))
   xdrSplitUnion _x@OperationBody'PAYMENT{}
     = (1, XDR.xdrPut (operationBody'paymentOp _x))
-  xdrSplitUnion _x@OperationBody'PATH_PAYMENT{}
-    = (2, XDR.xdrPut (operationBody'pathPaymentOp _x))
-  xdrSplitUnion _x@OperationBody'MANAGE_OFFER{}
-    = (3, XDR.xdrPut (operationBody'manageOfferOp _x))
-  xdrSplitUnion _x@OperationBody'CREATE_PASSIVE_OFFER{}
-    = (4, XDR.xdrPut (operationBody'createPassiveOfferOp _x))
+  xdrSplitUnion _x@OperationBody'PATH_PAYMENT_STRICT_RECEIVE{}
+    = (2, XDR.xdrPut (operationBody'pathPaymentStrictReceiveOp _x))
+  xdrSplitUnion _x@OperationBody'MANAGE_SELL_OFFER{}
+    = (3, XDR.xdrPut (operationBody'manageSellOfferOp _x))
+  xdrSplitUnion _x@OperationBody'CREATE_PASSIVE_SELL_OFFER{}
+    = (4, XDR.xdrPut (operationBody'createPassiveSellOfferOp _x))
   xdrSplitUnion _x@OperationBody'SET_OPTIONS{}
     = (5, XDR.xdrPut (operationBody'setOptionsOp _x))
   xdrSplitUnion _x@OperationBody'CHANGE_TRUST{}
@@ -934,6 +1620,33 @@ instance XDR.XDRUnion OperationBody where
     = (9, Control.Applicative.pure ())
   xdrSplitUnion _x@OperationBody'MANAGE_DATA{}
     = (10, XDR.xdrPut (operationBody'manageDataOp _x))
+  xdrSplitUnion _x@OperationBody'BUMP_SEQUENCE{}
+    = (11, XDR.xdrPut (operationBody'bumpSequenceOp _x))
+  xdrSplitUnion _x@OperationBody'MANAGE_BUY_OFFER{}
+    = (12, XDR.xdrPut (operationBody'manageBuyOfferOp _x))
+  xdrSplitUnion _x@OperationBody'PATH_PAYMENT_STRICT_SEND{}
+    = (13, XDR.xdrPut (operationBody'pathPaymentStrictSendOp _x))
+  xdrSplitUnion _x@OperationBody'CREATE_CLAIMABLE_BALANCE{}
+    = (14, XDR.xdrPut (operationBody'createClaimableBalanceOp _x))
+  xdrSplitUnion _x@OperationBody'CLAIM_CLAIMABLE_BALANCE{}
+    = (15, XDR.xdrPut (operationBody'claimClaimableBalanceOp _x))
+  xdrSplitUnion _x@OperationBody'BEGIN_SPONSORING_FUTURE_RESERVES{}
+    = (16,
+       XDR.xdrPut (operationBody'beginSponsoringFutureReservesOp _x))
+  xdrSplitUnion _x@OperationBody'END_SPONSORING_FUTURE_RESERVES{}
+    = (17, Control.Applicative.pure ())
+  xdrSplitUnion _x@OperationBody'REVOKE_SPONSORSHIP{}
+    = (18, XDR.xdrPut (operationBody'revokeSponsorshipOp _x))
+  xdrSplitUnion _x@OperationBody'CLAWBACK{}
+    = (19, XDR.xdrPut (operationBody'clawbackOp _x))
+  xdrSplitUnion _x@OperationBody'CLAWBACK_CLAIMABLE_BALANCE{}
+    = (20, XDR.xdrPut (operationBody'clawbackClaimableBalanceOp _x))
+  xdrSplitUnion _x@OperationBody'SET_TRUST_LINE_FLAGS{}
+    = (21, XDR.xdrPut (operationBody'setTrustLineFlagsOp _x))
+  xdrSplitUnion _x@OperationBody'LIQUIDITY_POOL_DEPOSIT{}
+    = (22, XDR.xdrPut (operationBody'liquidityPoolDepositOp _x))
+  xdrSplitUnion _x@OperationBody'LIQUIDITY_POOL_WITHDRAW{}
+    = (23, XDR.xdrPut (operationBody'liquidityPoolWithdrawOp _x))
   xdrGetUnionArm 0
     = Control.Applicative.pure OperationBody'CREATE_ACCOUNT
         Control.Applicative.<*> XDR.xdrGet
@@ -941,13 +1654,14 @@ instance XDR.XDRUnion OperationBody where
     = Control.Applicative.pure OperationBody'PAYMENT
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 2
-    = Control.Applicative.pure OperationBody'PATH_PAYMENT
+    = Control.Applicative.pure
+        OperationBody'PATH_PAYMENT_STRICT_RECEIVE
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 3
-    = Control.Applicative.pure OperationBody'MANAGE_OFFER
+    = Control.Applicative.pure OperationBody'MANAGE_SELL_OFFER
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 4
-    = Control.Applicative.pure OperationBody'CREATE_PASSIVE_OFFER
+    = Control.Applicative.pure OperationBody'CREATE_PASSIVE_SELL_OFFER
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 5
     = Control.Applicative.pure OperationBody'SET_OPTIONS
@@ -964,6 +1678,46 @@ instance XDR.XDRUnion OperationBody where
   xdrGetUnionArm 9 = Control.Applicative.pure OperationBody'INFLATION
   xdrGetUnionArm 10
     = Control.Applicative.pure OperationBody'MANAGE_DATA
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 11
+    = Control.Applicative.pure OperationBody'BUMP_SEQUENCE
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 12
+    = Control.Applicative.pure OperationBody'MANAGE_BUY_OFFER
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 13
+    = Control.Applicative.pure OperationBody'PATH_PAYMENT_STRICT_SEND
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 14
+    = Control.Applicative.pure OperationBody'CREATE_CLAIMABLE_BALANCE
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 15
+    = Control.Applicative.pure OperationBody'CLAIM_CLAIMABLE_BALANCE
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 16
+    = Control.Applicative.pure
+        OperationBody'BEGIN_SPONSORING_FUTURE_RESERVES
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 17
+    = Control.Applicative.pure
+        OperationBody'END_SPONSORING_FUTURE_RESERVES
+  xdrGetUnionArm 18
+    = Control.Applicative.pure OperationBody'REVOKE_SPONSORSHIP
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 19
+    = Control.Applicative.pure OperationBody'CLAWBACK
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 20
+    = Control.Applicative.pure OperationBody'CLAWBACK_CLAIMABLE_BALANCE
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 21
+    = Control.Applicative.pure OperationBody'SET_TRUST_LINE_FLAGS
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 22
+    = Control.Applicative.pure OperationBody'LIQUIDITY_POOL_DEPOSIT
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 23
+    = Control.Applicative.pure OperationBody'LIQUIDITY_POOL_WITHDRAW
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm _c
     = Prelude.fail "invalid OperationBody discriminant"
@@ -1352,9 +2106,120 @@ instance XDR.XDRUnion TransactionEnvelope where
   xdrGetUnionArm _c
     = Prelude.fail "invalid TransactionEnvelope discriminant"
 
+data TransactionSignaturePayload_taggedTransaction = TransactionSignaturePayload_taggedTransaction'ENVELOPE_TYPE_TX{transactionSignaturePayload_taggedTransaction'tx
+                                                                                                                    ::
+                                                                                                                    !Transaction}
+                                                   | TransactionSignaturePayload_taggedTransaction'ENVELOPE_TYPE_TX_FEE_BUMP{transactionSignaturePayload_taggedTransaction'feeBump
+                                                                                                                             ::
+                                                                                                                             !FeeBumpTransaction}
+                                                     deriving (Prelude.Eq, Prelude.Show)
+
+transactionSignaturePayload_taggedTransaction'type ::
+                                                   TransactionSignaturePayload_taggedTransaction ->
+                                                     EnvelopeType
+transactionSignaturePayload_taggedTransaction'type
+  = XDR.xdrDiscriminant
+
+instance XDR.XDR TransactionSignaturePayload_taggedTransaction
+         where
+  xdrType _ = "TransactionSignaturePayload_taggedTransaction"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion TransactionSignaturePayload_taggedTransaction
+         where
+  type XDRDiscriminant TransactionSignaturePayload_taggedTransaction
+       = EnvelopeType
+  xdrSplitUnion
+    _x@TransactionSignaturePayload_taggedTransaction'ENVELOPE_TYPE_TX{}
+    = (2,
+       XDR.xdrPut (transactionSignaturePayload_taggedTransaction'tx _x))
+  xdrSplitUnion
+    _x@TransactionSignaturePayload_taggedTransaction'ENVELOPE_TYPE_TX_FEE_BUMP{}
+    = (5,
+       XDR.xdrPut
+         (transactionSignaturePayload_taggedTransaction'feeBump _x))
+  xdrGetUnionArm 2
+    = Control.Applicative.pure
+        TransactionSignaturePayload_taggedTransaction'ENVELOPE_TYPE_TX
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 5
+    = Control.Applicative.pure
+        TransactionSignaturePayload_taggedTransaction'ENVELOPE_TYPE_TX_FEE_BUMP
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c
+    = Prelude.fail
+        "invalid TransactionSignaturePayload_taggedTransaction discriminant"
+
+data TransactionSignaturePayload = TransactionSignaturePayload{transactionSignaturePayload'networkId
+                                                               :: !Hash,
+                                                               transactionSignaturePayload'taggedTransaction
+                                                               ::
+                                                               !TransactionSignaturePayload_taggedTransaction}
+                                   deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR TransactionSignaturePayload where
+  xdrType _ = "TransactionSignaturePayload"
+  xdrPut _x
+    = XDR.xdrPut (transactionSignaturePayload'networkId _x)
+        Control.Applicative.*>
+        XDR.xdrPut (transactionSignaturePayload'taggedTransaction _x)
+  xdrGet
+    = Control.Applicative.pure TransactionSignaturePayload
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data ClaimAtomType = CLAIM_ATOM_TYPE_V0
+                   | CLAIM_ATOM_TYPE_ORDER_BOOK
+                   | CLAIM_ATOM_TYPE_LIQUIDITY_POOL
+                     deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                               Prelude.Show)
+
+instance XDR.XDR ClaimAtomType where
+  xdrType _ = "ClaimAtomType"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum ClaimAtomType where
+  xdrFromEnum CLAIM_ATOM_TYPE_V0 = 0
+  xdrFromEnum CLAIM_ATOM_TYPE_ORDER_BOOK = 1
+  xdrFromEnum CLAIM_ATOM_TYPE_LIQUIDITY_POOL = 2
+  xdrToEnum 0 = Prelude.return CLAIM_ATOM_TYPE_V0
+  xdrToEnum 1 = Prelude.return CLAIM_ATOM_TYPE_ORDER_BOOK
+  xdrToEnum 2 = Prelude.return CLAIM_ATOM_TYPE_LIQUIDITY_POOL
+  xdrToEnum _ = Prelude.fail "invalid ClaimAtomType"
+
+data ClaimOfferAtomV0 = ClaimOfferAtomV0{claimOfferAtomV0'sellerEd25519
+                                         :: !Uint256,
+                                         claimOfferAtomV0'offerID :: !Int64,
+                                         claimOfferAtomV0'assetSold :: !Asset,
+                                         claimOfferAtomV0'amountSold :: !Int64,
+                                         claimOfferAtomV0'assetBought :: !Asset,
+                                         claimOfferAtomV0'amountBought :: !Int64}
+                        deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR ClaimOfferAtomV0 where
+  xdrType _ = "ClaimOfferAtomV0"
+  xdrPut _x
+    = XDR.xdrPut (claimOfferAtomV0'sellerEd25519 _x)
+        Control.Applicative.*> XDR.xdrPut (claimOfferAtomV0'offerID _x)
+        Control.Applicative.*> XDR.xdrPut (claimOfferAtomV0'assetSold _x)
+        Control.Applicative.*> XDR.xdrPut (claimOfferAtomV0'amountSold _x)
+        Control.Applicative.*> XDR.xdrPut (claimOfferAtomV0'assetBought _x)
+        Control.Applicative.*>
+        XDR.xdrPut (claimOfferAtomV0'amountBought _x)
+  xdrGet
+    = Control.Applicative.pure ClaimOfferAtomV0 Control.Applicative.<*>
+        XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
 data ClaimOfferAtom = ClaimOfferAtom{claimOfferAtom'sellerID ::
                                      !AccountID,
-                                     claimOfferAtom'offerID :: !Uint64,
+                                     claimOfferAtom'offerID :: !Int64,
                                      claimOfferAtom'assetSold :: !Asset,
                                      claimOfferAtom'amountSold :: !Int64,
                                      claimOfferAtom'assetBought :: !Asset,
@@ -1378,6 +2243,68 @@ instance XDR.XDR ClaimOfferAtom where
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
+
+data ClaimLiquidityAtom = ClaimLiquidityAtom{claimLiquidityAtom'liquidityPoolID
+                                             :: !PoolID,
+                                             claimLiquidityAtom'assetSold :: !Asset,
+                                             claimLiquidityAtom'amountSold :: !Int64,
+                                             claimLiquidityAtom'assetBought :: !Asset,
+                                             claimLiquidityAtom'amountBought :: !Int64}
+                          deriving (Prelude.Eq, Prelude.Show)
+
+instance XDR.XDR ClaimLiquidityAtom where
+  xdrType _ = "ClaimLiquidityAtom"
+  xdrPut _x
+    = XDR.xdrPut (claimLiquidityAtom'liquidityPoolID _x)
+        Control.Applicative.*> XDR.xdrPut (claimLiquidityAtom'assetSold _x)
+        Control.Applicative.*>
+        XDR.xdrPut (claimLiquidityAtom'amountSold _x)
+        Control.Applicative.*>
+        XDR.xdrPut (claimLiquidityAtom'assetBought _x)
+        Control.Applicative.*>
+        XDR.xdrPut (claimLiquidityAtom'amountBought _x)
+  xdrGet
+    = Control.Applicative.pure ClaimLiquidityAtom
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+
+data ClaimAtom = ClaimAtom'CLAIM_ATOM_TYPE_V0{claimAtom'v0 ::
+                                              !ClaimOfferAtomV0}
+               | ClaimAtom'CLAIM_ATOM_TYPE_ORDER_BOOK{claimAtom'orderBook ::
+                                                      !ClaimOfferAtom}
+               | ClaimAtom'CLAIM_ATOM_TYPE_LIQUIDITY_POOL{claimAtom'liquidityPool
+                                                          :: !ClaimLiquidityAtom}
+                 deriving (Prelude.Eq, Prelude.Show)
+
+claimAtom'type :: ClaimAtom -> ClaimAtomType
+claimAtom'type = XDR.xdrDiscriminant
+
+instance XDR.XDR ClaimAtom where
+  xdrType _ = "ClaimAtom"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion ClaimAtom where
+  type XDRDiscriminant ClaimAtom = ClaimAtomType
+  xdrSplitUnion _x@ClaimAtom'CLAIM_ATOM_TYPE_V0{}
+    = (0, XDR.xdrPut (claimAtom'v0 _x))
+  xdrSplitUnion _x@ClaimAtom'CLAIM_ATOM_TYPE_ORDER_BOOK{}
+    = (1, XDR.xdrPut (claimAtom'orderBook _x))
+  xdrSplitUnion _x@ClaimAtom'CLAIM_ATOM_TYPE_LIQUIDITY_POOL{}
+    = (2, XDR.xdrPut (claimAtom'liquidityPool _x))
+  xdrGetUnionArm 0
+    = Control.Applicative.pure ClaimAtom'CLAIM_ATOM_TYPE_V0
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 1
+    = Control.Applicative.pure ClaimAtom'CLAIM_ATOM_TYPE_ORDER_BOOK
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 2
+    = Control.Applicative.pure ClaimAtom'CLAIM_ATOM_TYPE_LIQUIDITY_POOL
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm _c = Prelude.fail "invalid ClaimAtom discriminant"
 
 data CreateAccountResultCode = CREATE_ACCOUNT_SUCCESS
                              | CREATE_ACCOUNT_MALFORMED
@@ -1406,8 +2333,10 @@ instance XDR.XDREnum CreateAccountResultCode where
   xdrToEnum _ = Prelude.fail "invalid CreateAccountResultCode"
 
 data CreateAccountResult = CreateAccountResult'CREATE_ACCOUNT_SUCCESS{}
-                         | CreateAccountResult'default{createAccountResult'code' ::
-                                                       !CreateAccountResultCode}
+                         | CreateAccountResult'CREATE_ACCOUNT_MALFORMED{}
+                         | CreateAccountResult'CREATE_ACCOUNT_UNDERFUNDED{}
+                         | CreateAccountResult'CREATE_ACCOUNT_LOW_RESERVE{}
+                         | CreateAccountResult'CREATE_ACCOUNT_ALREADY_EXIST{}
                            deriving (Prelude.Eq, Prelude.Show)
 
 createAccountResult'code ::
@@ -1423,15 +2352,31 @@ instance XDR.XDRUnion CreateAccountResult where
   type XDRDiscriminant CreateAccountResult = CreateAccountResultCode
   xdrSplitUnion _x@CreateAccountResult'CREATE_ACCOUNT_SUCCESS{}
     = (0, Control.Applicative.pure ())
-  xdrSplitUnion
-    _x@CreateAccountResult'default{createAccountResult'code' = d}
-    = (XDR.xdrFromEnum d, Control.Applicative.pure ())
+  xdrSplitUnion _x@CreateAccountResult'CREATE_ACCOUNT_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion _x@CreateAccountResult'CREATE_ACCOUNT_UNDERFUNDED{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion _x@CreateAccountResult'CREATE_ACCOUNT_LOW_RESERVE{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion _x@CreateAccountResult'CREATE_ACCOUNT_ALREADY_EXIST{}
+    = (-4, Control.Applicative.pure ())
   xdrGetUnionArm 0
     = Control.Applicative.pure
         CreateAccountResult'CREATE_ACCOUNT_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        CreateAccountResult'CREATE_ACCOUNT_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        CreateAccountResult'CREATE_ACCOUNT_UNDERFUNDED
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        CreateAccountResult'CREATE_ACCOUNT_LOW_RESERVE
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        CreateAccountResult'CREATE_ACCOUNT_ALREADY_EXIST
   xdrGetUnionArm _c
-    = CreateAccountResult'default Control.Applicative.<$>
-        XDR.xdrToEnum _c
+    = Prelude.fail "invalid CreateAccountResult discriminant"
 
 data PaymentResultCode = PAYMENT_SUCCESS
                        | PAYMENT_MALFORMED
@@ -1475,7 +2420,15 @@ instance XDR.XDREnum PaymentResultCode where
   xdrToEnum _ = Prelude.fail "invalid PaymentResultCode"
 
 data PaymentResult = PaymentResult'PAYMENT_SUCCESS{}
-                   | PaymentResult'default{paymentResult'code' :: !PaymentResultCode}
+                   | PaymentResult'PAYMENT_MALFORMED{}
+                   | PaymentResult'PAYMENT_UNDERFUNDED{}
+                   | PaymentResult'PAYMENT_SRC_NO_TRUST{}
+                   | PaymentResult'PAYMENT_SRC_NOT_AUTHORIZED{}
+                   | PaymentResult'PAYMENT_NO_DESTINATION{}
+                   | PaymentResult'PAYMENT_NO_TRUST{}
+                   | PaymentResult'PAYMENT_NOT_AUTHORIZED{}
+                   | PaymentResult'PAYMENT_LINE_FULL{}
+                   | PaymentResult'PAYMENT_NO_ISSUER{}
                      deriving (Prelude.Eq, Prelude.Show)
 
 paymentResult'code :: PaymentResult -> PaymentResultCode
@@ -1490,62 +2443,109 @@ instance XDR.XDRUnion PaymentResult where
   type XDRDiscriminant PaymentResult = PaymentResultCode
   xdrSplitUnion _x@PaymentResult'PAYMENT_SUCCESS{}
     = (0, Control.Applicative.pure ())
-  xdrSplitUnion _x@PaymentResult'default{paymentResult'code' = d}
-    = (XDR.xdrFromEnum d, Control.Applicative.pure ())
+  xdrSplitUnion _x@PaymentResult'PAYMENT_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion _x@PaymentResult'PAYMENT_UNDERFUNDED{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion _x@PaymentResult'PAYMENT_SRC_NO_TRUST{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion _x@PaymentResult'PAYMENT_SRC_NOT_AUTHORIZED{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion _x@PaymentResult'PAYMENT_NO_DESTINATION{}
+    = (-5, Control.Applicative.pure ())
+  xdrSplitUnion _x@PaymentResult'PAYMENT_NO_TRUST{}
+    = (-6, Control.Applicative.pure ())
+  xdrSplitUnion _x@PaymentResult'PAYMENT_NOT_AUTHORIZED{}
+    = (-7, Control.Applicative.pure ())
+  xdrSplitUnion _x@PaymentResult'PAYMENT_LINE_FULL{}
+    = (-8, Control.Applicative.pure ())
+  xdrSplitUnion _x@PaymentResult'PAYMENT_NO_ISSUER{}
+    = (-9, Control.Applicative.pure ())
   xdrGetUnionArm 0
     = Control.Applicative.pure PaymentResult'PAYMENT_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure PaymentResult'PAYMENT_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure PaymentResult'PAYMENT_UNDERFUNDED
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure PaymentResult'PAYMENT_SRC_NO_TRUST
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure PaymentResult'PAYMENT_SRC_NOT_AUTHORIZED
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure PaymentResult'PAYMENT_NO_DESTINATION
+  xdrGetUnionArm (-6)
+    = Control.Applicative.pure PaymentResult'PAYMENT_NO_TRUST
+  xdrGetUnionArm (-7)
+    = Control.Applicative.pure PaymentResult'PAYMENT_NOT_AUTHORIZED
+  xdrGetUnionArm (-8)
+    = Control.Applicative.pure PaymentResult'PAYMENT_LINE_FULL
+  xdrGetUnionArm (-9)
+    = Control.Applicative.pure PaymentResult'PAYMENT_NO_ISSUER
   xdrGetUnionArm _c
-    = PaymentResult'default Control.Applicative.<$> XDR.xdrToEnum _c
+    = Prelude.fail "invalid PaymentResult discriminant"
 
-data PathPaymentResultCode = PATH_PAYMENT_SUCCESS
-                           | PATH_PAYMENT_MALFORMED
-                           | PATH_PAYMENT_UNDERFUNDED
-                           | PATH_PAYMENT_SRC_NO_TRUST
-                           | PATH_PAYMENT_SRC_NOT_AUTHORIZED
-                           | PATH_PAYMENT_NO_DESTINATION
-                           | PATH_PAYMENT_NO_TRUST
-                           | PATH_PAYMENT_NOT_AUTHORIZED
-                           | PATH_PAYMENT_LINE_FULL
-                           | PATH_PAYMENT_NO_ISSUER
-                           | PATH_PAYMENT_TOO_FEW_OFFERS
-                           | PATH_PAYMENT_OFFER_CROSS_SELF
-                           | PATH_PAYMENT_OVER_SENDMAX
-                             deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                       Prelude.Show)
+data PathPaymentStrictReceiveResultCode = PATH_PAYMENT_STRICT_RECEIVE_SUCCESS
+                                        | PATH_PAYMENT_STRICT_RECEIVE_MALFORMED
+                                        | PATH_PAYMENT_STRICT_RECEIVE_UNDERFUNDED
+                                        | PATH_PAYMENT_STRICT_RECEIVE_SRC_NO_TRUST
+                                        | PATH_PAYMENT_STRICT_RECEIVE_SRC_NOT_AUTHORIZED
+                                        | PATH_PAYMENT_STRICT_RECEIVE_NO_DESTINATION
+                                        | PATH_PAYMENT_STRICT_RECEIVE_NO_TRUST
+                                        | PATH_PAYMENT_STRICT_RECEIVE_NOT_AUTHORIZED
+                                        | PATH_PAYMENT_STRICT_RECEIVE_LINE_FULL
+                                        | PATH_PAYMENT_STRICT_RECEIVE_NO_ISSUER
+                                        | PATH_PAYMENT_STRICT_RECEIVE_TOO_FEW_OFFERS
+                                        | PATH_PAYMENT_STRICT_RECEIVE_OFFER_CROSS_SELF
+                                        | PATH_PAYMENT_STRICT_RECEIVE_OVER_SENDMAX
+                                          deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum,
+                                                    Prelude.Bounded, Prelude.Show)
 
-instance XDR.XDR PathPaymentResultCode where
-  xdrType _ = "PathPaymentResultCode"
+instance XDR.XDR PathPaymentStrictReceiveResultCode where
+  xdrType _ = "PathPaymentStrictReceiveResultCode"
   xdrPut = XDR.xdrPutEnum
   xdrGet = XDR.xdrGetEnum
 
-instance XDR.XDREnum PathPaymentResultCode where
-  xdrFromEnum PATH_PAYMENT_SUCCESS = 0
-  xdrFromEnum PATH_PAYMENT_MALFORMED = -1
-  xdrFromEnum PATH_PAYMENT_UNDERFUNDED = -2
-  xdrFromEnum PATH_PAYMENT_SRC_NO_TRUST = -3
-  xdrFromEnum PATH_PAYMENT_SRC_NOT_AUTHORIZED = -4
-  xdrFromEnum PATH_PAYMENT_NO_DESTINATION = -5
-  xdrFromEnum PATH_PAYMENT_NO_TRUST = -6
-  xdrFromEnum PATH_PAYMENT_NOT_AUTHORIZED = -7
-  xdrFromEnum PATH_PAYMENT_LINE_FULL = -8
-  xdrFromEnum PATH_PAYMENT_NO_ISSUER = -9
-  xdrFromEnum PATH_PAYMENT_TOO_FEW_OFFERS = -10
-  xdrFromEnum PATH_PAYMENT_OFFER_CROSS_SELF = -11
-  xdrFromEnum PATH_PAYMENT_OVER_SENDMAX = -12
-  xdrToEnum 0 = Prelude.return PATH_PAYMENT_SUCCESS
-  xdrToEnum (-1) = Prelude.return PATH_PAYMENT_MALFORMED
-  xdrToEnum (-2) = Prelude.return PATH_PAYMENT_UNDERFUNDED
-  xdrToEnum (-3) = Prelude.return PATH_PAYMENT_SRC_NO_TRUST
-  xdrToEnum (-4) = Prelude.return PATH_PAYMENT_SRC_NOT_AUTHORIZED
-  xdrToEnum (-5) = Prelude.return PATH_PAYMENT_NO_DESTINATION
-  xdrToEnum (-6) = Prelude.return PATH_PAYMENT_NO_TRUST
-  xdrToEnum (-7) = Prelude.return PATH_PAYMENT_NOT_AUTHORIZED
-  xdrToEnum (-8) = Prelude.return PATH_PAYMENT_LINE_FULL
-  xdrToEnum (-9) = Prelude.return PATH_PAYMENT_NO_ISSUER
-  xdrToEnum (-10) = Prelude.return PATH_PAYMENT_TOO_FEW_OFFERS
-  xdrToEnum (-11) = Prelude.return PATH_PAYMENT_OFFER_CROSS_SELF
-  xdrToEnum (-12) = Prelude.return PATH_PAYMENT_OVER_SENDMAX
-  xdrToEnum _ = Prelude.fail "invalid PathPaymentResultCode"
+instance XDR.XDREnum PathPaymentStrictReceiveResultCode where
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_SUCCESS = 0
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_MALFORMED = -1
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_UNDERFUNDED = -2
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_SRC_NO_TRUST = -3
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_SRC_NOT_AUTHORIZED = -4
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_NO_DESTINATION = -5
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_NO_TRUST = -6
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_NOT_AUTHORIZED = -7
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_LINE_FULL = -8
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_NO_ISSUER = -9
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_TOO_FEW_OFFERS = -10
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_OFFER_CROSS_SELF = -11
+  xdrFromEnum PATH_PAYMENT_STRICT_RECEIVE_OVER_SENDMAX = -12
+  xdrToEnum 0 = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_SUCCESS
+  xdrToEnum (-1)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_MALFORMED
+  xdrToEnum (-2)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_UNDERFUNDED
+  xdrToEnum (-3)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_SRC_NO_TRUST
+  xdrToEnum (-4)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_SRC_NOT_AUTHORIZED
+  xdrToEnum (-5)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_NO_DESTINATION
+  xdrToEnum (-6)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_NO_TRUST
+  xdrToEnum (-7)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_NOT_AUTHORIZED
+  xdrToEnum (-8)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_LINE_FULL
+  xdrToEnum (-9)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_NO_ISSUER
+  xdrToEnum (-10)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_TOO_FEW_OFFERS
+  xdrToEnum (-11)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_OFFER_CROSS_SELF
+  xdrToEnum (-12)
+    = Prelude.return PATH_PAYMENT_STRICT_RECEIVE_OVER_SENDMAX
+  xdrToEnum _
+    = Prelude.fail "invalid PathPaymentStrictReceiveResultCode"
 
 data SimplePaymentResult = SimplePaymentResult{simplePaymentResult'destination
                                                :: !AccountID,
@@ -1565,99 +2565,364 @@ instance XDR.XDR SimplePaymentResult where
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
-data PathPaymentResult = PathPaymentResult'PATH_PAYMENT_SUCCESS{pathPaymentResult'success'offers
-                                                                ::
-                                                                !(XDR.Array 4294967295
-                                                                    ClaimOfferAtom),
-                                                                pathPaymentResult'success'last ::
-                                                                !SimplePaymentResult}
-                       | PathPaymentResult'PATH_PAYMENT_NO_ISSUER{pathPaymentResult'noIssuer
-                                                                  :: !Asset}
-                       | PathPaymentResult'default{pathPaymentResult'code' ::
-                                                   !PathPaymentResultCode}
-                         deriving (Prelude.Eq, Prelude.Show)
+data PathPaymentStrictReceiveResult = PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_SUCCESS{pathPaymentStrictReceiveResult'success'offers
+                                                                                                         ::
+                                                                                                         !(XDR.Array
+                                                                                                             4294967295
+                                                                                                             ClaimAtom),
+                                                                                                         pathPaymentStrictReceiveResult'success'last
+                                                                                                         ::
+                                                                                                         !SimplePaymentResult}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_MALFORMED{}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_UNDERFUNDED{}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_SRC_NO_TRUST{}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_SRC_NOT_AUTHORIZED{}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NO_DESTINATION{}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NO_TRUST{}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NOT_AUTHORIZED{}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_LINE_FULL{}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NO_ISSUER{pathPaymentStrictReceiveResult'noIssuer
+                                                                                                           ::
+                                                                                                           !Asset}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_TOO_FEW_OFFERS{}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_OFFER_CROSS_SELF{}
+                                    | PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_OVER_SENDMAX{}
+                                      deriving (Prelude.Eq, Prelude.Show)
 
-pathPaymentResult'code ::
-                       PathPaymentResult -> PathPaymentResultCode
-pathPaymentResult'code = XDR.xdrDiscriminant
+pathPaymentStrictReceiveResult'code ::
+                                    PathPaymentStrictReceiveResult ->
+                                      PathPaymentStrictReceiveResultCode
+pathPaymentStrictReceiveResult'code = XDR.xdrDiscriminant
 
-instance XDR.XDR PathPaymentResult where
-  xdrType _ = "PathPaymentResult"
+instance XDR.XDR PathPaymentStrictReceiveResult where
+  xdrType _ = "PathPaymentStrictReceiveResult"
   xdrPut = XDR.xdrPutUnion
   xdrGet = XDR.xdrGetUnion
 
-instance XDR.XDRUnion PathPaymentResult where
-  type XDRDiscriminant PathPaymentResult = PathPaymentResultCode
-  xdrSplitUnion _x@PathPaymentResult'PATH_PAYMENT_SUCCESS{}
-    = (0,
-       XDR.xdrPut (pathPaymentResult'success'offers _x)
-         Control.Applicative.*>
-         XDR.xdrPut (pathPaymentResult'success'last _x))
-  xdrSplitUnion _x@PathPaymentResult'PATH_PAYMENT_NO_ISSUER{}
-    = (-9, XDR.xdrPut (pathPaymentResult'noIssuer _x))
+instance XDR.XDRUnion PathPaymentStrictReceiveResult where
+  type XDRDiscriminant PathPaymentStrictReceiveResult =
+       PathPaymentStrictReceiveResultCode
   xdrSplitUnion
-    _x@PathPaymentResult'default{pathPaymentResult'code' = d}
-    = (XDR.xdrFromEnum d, Control.Applicative.pure ())
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_SUCCESS{}
+    = (0,
+       XDR.xdrPut (pathPaymentStrictReceiveResult'success'offers _x)
+         Control.Applicative.*>
+         XDR.xdrPut (pathPaymentStrictReceiveResult'success'last _x))
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_UNDERFUNDED{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_SRC_NO_TRUST{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_SRC_NOT_AUTHORIZED{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NO_DESTINATION{}
+    = (-5, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NO_TRUST{}
+    = (-6, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NOT_AUTHORIZED{}
+    = (-7, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_LINE_FULL{}
+    = (-8, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NO_ISSUER{}
+    = (-9, XDR.xdrPut (pathPaymentStrictReceiveResult'noIssuer _x))
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_TOO_FEW_OFFERS{}
+    = (-10, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_OFFER_CROSS_SELF{}
+    = (-11, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_OVER_SENDMAX{}
+    = (-12, Control.Applicative.pure ())
   xdrGetUnionArm 0
-    = Control.Applicative.pure PathPaymentResult'PATH_PAYMENT_SUCCESS
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_SUCCESS
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_UNDERFUNDED
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_SRC_NO_TRUST
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_SRC_NOT_AUTHORIZED
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NO_DESTINATION
+  xdrGetUnionArm (-6)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NO_TRUST
+  xdrGetUnionArm (-7)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NOT_AUTHORIZED
+  xdrGetUnionArm (-8)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_LINE_FULL
   xdrGetUnionArm (-9)
-    = Control.Applicative.pure PathPaymentResult'PATH_PAYMENT_NO_ISSUER
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_NO_ISSUER
         Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm (-10)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_TOO_FEW_OFFERS
+  xdrGetUnionArm (-11)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_OFFER_CROSS_SELF
+  xdrGetUnionArm (-12)
+    = Control.Applicative.pure
+        PathPaymentStrictReceiveResult'PATH_PAYMENT_STRICT_RECEIVE_OVER_SENDMAX
   xdrGetUnionArm _c
-    = PathPaymentResult'default Control.Applicative.<$>
-        XDR.xdrToEnum _c
+    = Prelude.fail
+        "invalid PathPaymentStrictReceiveResult discriminant"
 
-data ManageOfferResultCode = MANAGE_OFFER_SUCCESS
-                           | MANAGE_OFFER_MALFORMED
-                           | MANAGE_OFFER_SELL_NO_TRUST
-                           | MANAGE_OFFER_BUY_NO_TRUST
-                           | MANAGE_OFFER_SELL_NOT_AUTHORIZED
-                           | MANAGE_OFFER_BUY_NOT_AUTHORIZED
-                           | MANAGE_OFFER_LINE_FULL
-                           | MANAGE_OFFER_UNDERFUNDED
-                           | MANAGE_OFFER_CROSS_SELF
-                           | MANAGE_OFFER_SELL_NO_ISSUER
-                           | MANAGE_OFFER_BUY_NO_ISSUER
-                           | MANAGE_OFFER_NOT_FOUND
-                           | MANAGE_OFFER_LOW_RESERVE
-                             deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
-                                       Prelude.Show)
+data PathPaymentStrictSendResultCode = PATH_PAYMENT_STRICT_SEND_SUCCESS
+                                     | PATH_PAYMENT_STRICT_SEND_MALFORMED
+                                     | PATH_PAYMENT_STRICT_SEND_UNDERFUNDED
+                                     | PATH_PAYMENT_STRICT_SEND_SRC_NO_TRUST
+                                     | PATH_PAYMENT_STRICT_SEND_SRC_NOT_AUTHORIZED
+                                     | PATH_PAYMENT_STRICT_SEND_NO_DESTINATION
+                                     | PATH_PAYMENT_STRICT_SEND_NO_TRUST
+                                     | PATH_PAYMENT_STRICT_SEND_NOT_AUTHORIZED
+                                     | PATH_PAYMENT_STRICT_SEND_LINE_FULL
+                                     | PATH_PAYMENT_STRICT_SEND_NO_ISSUER
+                                     | PATH_PAYMENT_STRICT_SEND_TOO_FEW_OFFERS
+                                     | PATH_PAYMENT_STRICT_SEND_OFFER_CROSS_SELF
+                                     | PATH_PAYMENT_STRICT_SEND_UNDER_DESTMIN
+                                       deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum,
+                                                 Prelude.Bounded, Prelude.Show)
 
-instance XDR.XDR ManageOfferResultCode where
-  xdrType _ = "ManageOfferResultCode"
+instance XDR.XDR PathPaymentStrictSendResultCode where
+  xdrType _ = "PathPaymentStrictSendResultCode"
   xdrPut = XDR.xdrPutEnum
   xdrGet = XDR.xdrGetEnum
 
-instance XDR.XDREnum ManageOfferResultCode where
-  xdrFromEnum MANAGE_OFFER_SUCCESS = 0
-  xdrFromEnum MANAGE_OFFER_MALFORMED = -1
-  xdrFromEnum MANAGE_OFFER_SELL_NO_TRUST = -2
-  xdrFromEnum MANAGE_OFFER_BUY_NO_TRUST = -3
-  xdrFromEnum MANAGE_OFFER_SELL_NOT_AUTHORIZED = -4
-  xdrFromEnum MANAGE_OFFER_BUY_NOT_AUTHORIZED = -5
-  xdrFromEnum MANAGE_OFFER_LINE_FULL = -6
-  xdrFromEnum MANAGE_OFFER_UNDERFUNDED = -7
-  xdrFromEnum MANAGE_OFFER_CROSS_SELF = -8
-  xdrFromEnum MANAGE_OFFER_SELL_NO_ISSUER = -9
-  xdrFromEnum MANAGE_OFFER_BUY_NO_ISSUER = -10
-  xdrFromEnum MANAGE_OFFER_NOT_FOUND = -11
-  xdrFromEnum MANAGE_OFFER_LOW_RESERVE = -12
-  xdrToEnum 0 = Prelude.return MANAGE_OFFER_SUCCESS
-  xdrToEnum (-1) = Prelude.return MANAGE_OFFER_MALFORMED
-  xdrToEnum (-2) = Prelude.return MANAGE_OFFER_SELL_NO_TRUST
-  xdrToEnum (-3) = Prelude.return MANAGE_OFFER_BUY_NO_TRUST
-  xdrToEnum (-4) = Prelude.return MANAGE_OFFER_SELL_NOT_AUTHORIZED
-  xdrToEnum (-5) = Prelude.return MANAGE_OFFER_BUY_NOT_AUTHORIZED
-  xdrToEnum (-6) = Prelude.return MANAGE_OFFER_LINE_FULL
-  xdrToEnum (-7) = Prelude.return MANAGE_OFFER_UNDERFUNDED
-  xdrToEnum (-8) = Prelude.return MANAGE_OFFER_CROSS_SELF
-  xdrToEnum (-9) = Prelude.return MANAGE_OFFER_SELL_NO_ISSUER
-  xdrToEnum (-10) = Prelude.return MANAGE_OFFER_BUY_NO_ISSUER
-  xdrToEnum (-11) = Prelude.return MANAGE_OFFER_NOT_FOUND
-  xdrToEnum (-12) = Prelude.return MANAGE_OFFER_LOW_RESERVE
-  xdrToEnum _ = Prelude.fail "invalid ManageOfferResultCode"
+instance XDR.XDREnum PathPaymentStrictSendResultCode where
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_SUCCESS = 0
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_MALFORMED = -1
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_UNDERFUNDED = -2
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_SRC_NO_TRUST = -3
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_SRC_NOT_AUTHORIZED = -4
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_NO_DESTINATION = -5
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_NO_TRUST = -6
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_NOT_AUTHORIZED = -7
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_LINE_FULL = -8
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_NO_ISSUER = -9
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_TOO_FEW_OFFERS = -10
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_OFFER_CROSS_SELF = -11
+  xdrFromEnum PATH_PAYMENT_STRICT_SEND_UNDER_DESTMIN = -12
+  xdrToEnum 0 = Prelude.return PATH_PAYMENT_STRICT_SEND_SUCCESS
+  xdrToEnum (-1) = Prelude.return PATH_PAYMENT_STRICT_SEND_MALFORMED
+  xdrToEnum (-2)
+    = Prelude.return PATH_PAYMENT_STRICT_SEND_UNDERFUNDED
+  xdrToEnum (-3)
+    = Prelude.return PATH_PAYMENT_STRICT_SEND_SRC_NO_TRUST
+  xdrToEnum (-4)
+    = Prelude.return PATH_PAYMENT_STRICT_SEND_SRC_NOT_AUTHORIZED
+  xdrToEnum (-5)
+    = Prelude.return PATH_PAYMENT_STRICT_SEND_NO_DESTINATION
+  xdrToEnum (-6) = Prelude.return PATH_PAYMENT_STRICT_SEND_NO_TRUST
+  xdrToEnum (-7)
+    = Prelude.return PATH_PAYMENT_STRICT_SEND_NOT_AUTHORIZED
+  xdrToEnum (-8) = Prelude.return PATH_PAYMENT_STRICT_SEND_LINE_FULL
+  xdrToEnum (-9) = Prelude.return PATH_PAYMENT_STRICT_SEND_NO_ISSUER
+  xdrToEnum (-10)
+    = Prelude.return PATH_PAYMENT_STRICT_SEND_TOO_FEW_OFFERS
+  xdrToEnum (-11)
+    = Prelude.return PATH_PAYMENT_STRICT_SEND_OFFER_CROSS_SELF
+  xdrToEnum (-12)
+    = Prelude.return PATH_PAYMENT_STRICT_SEND_UNDER_DESTMIN
+  xdrToEnum _
+    = Prelude.fail "invalid PathPaymentStrictSendResultCode"
+
+data PathPaymentStrictSendResult = PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_SUCCESS{pathPaymentStrictSendResult'success'offers
+                                                                                                ::
+                                                                                                !(XDR.Array
+                                                                                                    4294967295
+                                                                                                    ClaimAtom),
+                                                                                                pathPaymentStrictSendResult'success'last
+                                                                                                ::
+                                                                                                !SimplePaymentResult}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_MALFORMED{}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_UNDERFUNDED{}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_SRC_NO_TRUST{}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_SRC_NOT_AUTHORIZED{}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NO_DESTINATION{}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NO_TRUST{}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NOT_AUTHORIZED{}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_LINE_FULL{}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NO_ISSUER{pathPaymentStrictSendResult'noIssuer
+                                                                                                  ::
+                                                                                                  !Asset}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_TOO_FEW_OFFERS{}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_OFFER_CROSS_SELF{}
+                                 | PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_UNDER_DESTMIN{}
+                                   deriving (Prelude.Eq, Prelude.Show)
+
+pathPaymentStrictSendResult'code ::
+                                 PathPaymentStrictSendResult -> PathPaymentStrictSendResultCode
+pathPaymentStrictSendResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR PathPaymentStrictSendResult where
+  xdrType _ = "PathPaymentStrictSendResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion PathPaymentStrictSendResult where
+  type XDRDiscriminant PathPaymentStrictSendResult =
+       PathPaymentStrictSendResultCode
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_SUCCESS{}
+    = (0,
+       XDR.xdrPut (pathPaymentStrictSendResult'success'offers _x)
+         Control.Applicative.*>
+         XDR.xdrPut (pathPaymentStrictSendResult'success'last _x))
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_UNDERFUNDED{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_SRC_NO_TRUST{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_SRC_NOT_AUTHORIZED{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NO_DESTINATION{}
+    = (-5, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NO_TRUST{}
+    = (-6, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NOT_AUTHORIZED{}
+    = (-7, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_LINE_FULL{}
+    = (-8, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NO_ISSUER{}
+    = (-9, XDR.xdrPut (pathPaymentStrictSendResult'noIssuer _x))
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_TOO_FEW_OFFERS{}
+    = (-10, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_OFFER_CROSS_SELF{}
+    = (-11, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_UNDER_DESTMIN{}
+    = (-12, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_SUCCESS
+        Control.Applicative.<*> XDR.xdrGet
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_UNDERFUNDED
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_SRC_NO_TRUST
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_SRC_NOT_AUTHORIZED
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NO_DESTINATION
+  xdrGetUnionArm (-6)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NO_TRUST
+  xdrGetUnionArm (-7)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NOT_AUTHORIZED
+  xdrGetUnionArm (-8)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_LINE_FULL
+  xdrGetUnionArm (-9)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_NO_ISSUER
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm (-10)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_TOO_FEW_OFFERS
+  xdrGetUnionArm (-11)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_OFFER_CROSS_SELF
+  xdrGetUnionArm (-12)
+    = Control.Applicative.pure
+        PathPaymentStrictSendResult'PATH_PAYMENT_STRICT_SEND_UNDER_DESTMIN
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid PathPaymentStrictSendResult discriminant"
+
+data ManageSellOfferResultCode = MANAGE_SELL_OFFER_SUCCESS
+                               | MANAGE_SELL_OFFER_MALFORMED
+                               | MANAGE_SELL_OFFER_SELL_NO_TRUST
+                               | MANAGE_SELL_OFFER_BUY_NO_TRUST
+                               | MANAGE_SELL_OFFER_SELL_NOT_AUTHORIZED
+                               | MANAGE_SELL_OFFER_BUY_NOT_AUTHORIZED
+                               | MANAGE_SELL_OFFER_LINE_FULL
+                               | MANAGE_SELL_OFFER_UNDERFUNDED
+                               | MANAGE_SELL_OFFER_CROSS_SELF
+                               | MANAGE_SELL_OFFER_SELL_NO_ISSUER
+                               | MANAGE_SELL_OFFER_BUY_NO_ISSUER
+                               | MANAGE_SELL_OFFER_NOT_FOUND
+                               | MANAGE_SELL_OFFER_LOW_RESERVE
+                                 deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                           Prelude.Show)
+
+instance XDR.XDR ManageSellOfferResultCode where
+  xdrType _ = "ManageSellOfferResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum ManageSellOfferResultCode where
+  xdrFromEnum MANAGE_SELL_OFFER_SUCCESS = 0
+  xdrFromEnum MANAGE_SELL_OFFER_MALFORMED = -1
+  xdrFromEnum MANAGE_SELL_OFFER_SELL_NO_TRUST = -2
+  xdrFromEnum MANAGE_SELL_OFFER_BUY_NO_TRUST = -3
+  xdrFromEnum MANAGE_SELL_OFFER_SELL_NOT_AUTHORIZED = -4
+  xdrFromEnum MANAGE_SELL_OFFER_BUY_NOT_AUTHORIZED = -5
+  xdrFromEnum MANAGE_SELL_OFFER_LINE_FULL = -6
+  xdrFromEnum MANAGE_SELL_OFFER_UNDERFUNDED = -7
+  xdrFromEnum MANAGE_SELL_OFFER_CROSS_SELF = -8
+  xdrFromEnum MANAGE_SELL_OFFER_SELL_NO_ISSUER = -9
+  xdrFromEnum MANAGE_SELL_OFFER_BUY_NO_ISSUER = -10
+  xdrFromEnum MANAGE_SELL_OFFER_NOT_FOUND = -11
+  xdrFromEnum MANAGE_SELL_OFFER_LOW_RESERVE = -12
+  xdrToEnum 0 = Prelude.return MANAGE_SELL_OFFER_SUCCESS
+  xdrToEnum (-1) = Prelude.return MANAGE_SELL_OFFER_MALFORMED
+  xdrToEnum (-2) = Prelude.return MANAGE_SELL_OFFER_SELL_NO_TRUST
+  xdrToEnum (-3) = Prelude.return MANAGE_SELL_OFFER_BUY_NO_TRUST
+  xdrToEnum (-4)
+    = Prelude.return MANAGE_SELL_OFFER_SELL_NOT_AUTHORIZED
+  xdrToEnum (-5)
+    = Prelude.return MANAGE_SELL_OFFER_BUY_NOT_AUTHORIZED
+  xdrToEnum (-6) = Prelude.return MANAGE_SELL_OFFER_LINE_FULL
+  xdrToEnum (-7) = Prelude.return MANAGE_SELL_OFFER_UNDERFUNDED
+  xdrToEnum (-8) = Prelude.return MANAGE_SELL_OFFER_CROSS_SELF
+  xdrToEnum (-9) = Prelude.return MANAGE_SELL_OFFER_SELL_NO_ISSUER
+  xdrToEnum (-10) = Prelude.return MANAGE_SELL_OFFER_BUY_NO_ISSUER
+  xdrToEnum (-11) = Prelude.return MANAGE_SELL_OFFER_NOT_FOUND
+  xdrToEnum (-12) = Prelude.return MANAGE_SELL_OFFER_LOW_RESERVE
+  xdrToEnum _ = Prelude.fail "invalid ManageSellOfferResultCode"
 
 data ManageOfferEffect = MANAGE_OFFER_CREATED
                        | MANAGE_OFFER_UPDATED
@@ -1679,54 +2944,54 @@ instance XDR.XDREnum ManageOfferEffect where
   xdrToEnum 2 = Prelude.return MANAGE_OFFER_DELETED
   xdrToEnum _ = Prelude.fail "invalid ManageOfferEffect"
 
-data ManageOfferSuccesResultOffer = ManageOfferSuccesResultOffer'MANAGE_OFFER_CREATED{manageOfferSuccesResultOffer'offer
-                                                                                      ::
-                                                                                      !OfferEntry}
-                                  | ManageOfferSuccesResultOffer'MANAGE_OFFER_UPDATED{manageOfferSuccesResultOffer'offer
-                                                                                      ::
-                                                                                      !OfferEntry}
-                                  | ManageOfferSuccesResultOffer'default{manageOfferSuccesResultOffer'effect'
-                                                                         :: !ManageOfferEffect}
-                                    deriving (Prelude.Eq, Prelude.Show)
+data ManageOfferSuccesResult_offer = ManageOfferSuccesResult_offer'MANAGE_OFFER_CREATED{manageOfferSuccesResult_offer'offer
+                                                                                        ::
+                                                                                        !OfferEntry}
+                                   | ManageOfferSuccesResult_offer'MANAGE_OFFER_UPDATED{manageOfferSuccesResult_offer'offer
+                                                                                        ::
+                                                                                        !OfferEntry}
+                                   | ManageOfferSuccesResult_offer'MANAGE_OFFER_DELETED{}
+                                     deriving (Prelude.Eq, Prelude.Show)
 
-manageOfferSuccesResultOffer'effect ::
-                                    ManageOfferSuccesResultOffer -> ManageOfferEffect
-manageOfferSuccesResultOffer'effect = XDR.xdrDiscriminant
+manageOfferSuccesResult_offer'effect ::
+                                     ManageOfferSuccesResult_offer -> ManageOfferEffect
+manageOfferSuccesResult_offer'effect = XDR.xdrDiscriminant
 
-instance XDR.XDR ManageOfferSuccesResultOffer where
-  xdrType _ = "ManageOfferSuccesResultOffer"
+instance XDR.XDR ManageOfferSuccesResult_offer where
+  xdrType _ = "ManageOfferSuccesResult_offer"
   xdrPut = XDR.xdrPutUnion
   xdrGet = XDR.xdrGetUnion
 
-instance XDR.XDRUnion ManageOfferSuccesResultOffer where
-  type XDRDiscriminant ManageOfferSuccesResultOffer =
+instance XDR.XDRUnion ManageOfferSuccesResult_offer where
+  type XDRDiscriminant ManageOfferSuccesResult_offer =
        ManageOfferEffect
   xdrSplitUnion
-    _x@ManageOfferSuccesResultOffer'MANAGE_OFFER_CREATED{}
-    = (0, XDR.xdrPut (manageOfferSuccesResultOffer'offer _x))
+    _x@ManageOfferSuccesResult_offer'MANAGE_OFFER_CREATED{}
+    = (0, XDR.xdrPut (manageOfferSuccesResult_offer'offer _x))
   xdrSplitUnion
-    _x@ManageOfferSuccesResultOffer'MANAGE_OFFER_UPDATED{}
-    = (1, XDR.xdrPut (manageOfferSuccesResultOffer'offer _x))
+    _x@ManageOfferSuccesResult_offer'MANAGE_OFFER_UPDATED{}
+    = (1, XDR.xdrPut (manageOfferSuccesResult_offer'offer _x))
   xdrSplitUnion
-    _x@ManageOfferSuccesResultOffer'default{manageOfferSuccesResultOffer'effect'
-                                              = d}
-    = (XDR.xdrFromEnum d, Control.Applicative.pure ())
+    _x@ManageOfferSuccesResult_offer'MANAGE_OFFER_DELETED{}
+    = (2, Control.Applicative.pure ())
   xdrGetUnionArm 0
     = Control.Applicative.pure
-        ManageOfferSuccesResultOffer'MANAGE_OFFER_CREATED
+        ManageOfferSuccesResult_offer'MANAGE_OFFER_CREATED
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 1
     = Control.Applicative.pure
-        ManageOfferSuccesResultOffer'MANAGE_OFFER_UPDATED
+        ManageOfferSuccesResult_offer'MANAGE_OFFER_UPDATED
         Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 2
+    = Control.Applicative.pure
+        ManageOfferSuccesResult_offer'MANAGE_OFFER_DELETED
   xdrGetUnionArm _c
-    = ManageOfferSuccesResultOffer'default Control.Applicative.<$>
-        XDR.xdrToEnum _c
+    = Prelude.fail "invalid ManageOfferSuccesResult_offer discriminant"
 
 data ManageOfferSuccessResult = ManageOfferSuccessResult{manageOfferSuccessResult'offersClaimed
-                                                         :: !(XDR.Array 4294967295 ClaimOfferAtom),
+                                                         :: !(XDR.Array 4294967295 ClaimAtom),
                                                          manageOfferSuccessResult'offer ::
-                                                         !ManageOfferSuccesResultOffer}
+                                                         !ManageOfferSuccesResult_offer}
                                 deriving (Prelude.Eq, Prelude.Show)
 
 instance XDR.XDR ManageOfferSuccessResult where
@@ -1740,34 +3005,272 @@ instance XDR.XDR ManageOfferSuccessResult where
         Control.Applicative.<*> XDR.xdrGet
         Control.Applicative.<*> XDR.xdrGet
 
-data ManageOfferResult = ManageOfferResult'MANAGE_OFFER_SUCCESS{manageOfferResult'success
-                                                                :: !ManageOfferSuccessResult}
-                       | ManageOfferResult'default{manageOfferResult'code' ::
-                                                   !ManageOfferResultCode}
-                         deriving (Prelude.Eq, Prelude.Show)
+data ManageSellOfferResult = ManageSellOfferResult'MANAGE_SELL_OFFER_SUCCESS{manageSellOfferResult'success
+                                                                             ::
+                                                                             !ManageOfferSuccessResult}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_MALFORMED{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_SELL_NO_TRUST{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_BUY_NO_TRUST{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_SELL_NOT_AUTHORIZED{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_BUY_NOT_AUTHORIZED{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_LINE_FULL{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_UNDERFUNDED{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_CROSS_SELF{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_SELL_NO_ISSUER{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_BUY_NO_ISSUER{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_NOT_FOUND{}
+                           | ManageSellOfferResult'MANAGE_SELL_OFFER_LOW_RESERVE{}
+                             deriving (Prelude.Eq, Prelude.Show)
 
-manageOfferResult'code ::
-                       ManageOfferResult -> ManageOfferResultCode
-manageOfferResult'code = XDR.xdrDiscriminant
+manageSellOfferResult'code ::
+                           ManageSellOfferResult -> ManageSellOfferResultCode
+manageSellOfferResult'code = XDR.xdrDiscriminant
 
-instance XDR.XDR ManageOfferResult where
-  xdrType _ = "ManageOfferResult"
+instance XDR.XDR ManageSellOfferResult where
+  xdrType _ = "ManageSellOfferResult"
   xdrPut = XDR.xdrPutUnion
   xdrGet = XDR.xdrGetUnion
 
-instance XDR.XDRUnion ManageOfferResult where
-  type XDRDiscriminant ManageOfferResult = ManageOfferResultCode
-  xdrSplitUnion _x@ManageOfferResult'MANAGE_OFFER_SUCCESS{}
-    = (0, XDR.xdrPut (manageOfferResult'success _x))
+instance XDR.XDRUnion ManageSellOfferResult where
+  type XDRDiscriminant ManageSellOfferResult =
+       ManageSellOfferResultCode
+  xdrSplitUnion _x@ManageSellOfferResult'MANAGE_SELL_OFFER_SUCCESS{}
+    = (0, XDR.xdrPut (manageSellOfferResult'success _x))
   xdrSplitUnion
-    _x@ManageOfferResult'default{manageOfferResult'code' = d}
-    = (XDR.xdrFromEnum d, Control.Applicative.pure ())
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_SELL_NO_TRUST{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_BUY_NO_TRUST{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_SELL_NOT_AUTHORIZED{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_BUY_NOT_AUTHORIZED{}
+    = (-5, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_LINE_FULL{}
+    = (-6, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_UNDERFUNDED{}
+    = (-7, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_CROSS_SELF{}
+    = (-8, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_SELL_NO_ISSUER{}
+    = (-9, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_BUY_NO_ISSUER{}
+    = (-10, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_NOT_FOUND{}
+    = (-11, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageSellOfferResult'MANAGE_SELL_OFFER_LOW_RESERVE{}
+    = (-12, Control.Applicative.pure ())
   xdrGetUnionArm 0
-    = Control.Applicative.pure ManageOfferResult'MANAGE_OFFER_SUCCESS
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_SUCCESS
         Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_SELL_NO_TRUST
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_BUY_NO_TRUST
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_SELL_NOT_AUTHORIZED
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_BUY_NOT_AUTHORIZED
+  xdrGetUnionArm (-6)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_LINE_FULL
+  xdrGetUnionArm (-7)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_UNDERFUNDED
+  xdrGetUnionArm (-8)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_CROSS_SELF
+  xdrGetUnionArm (-9)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_SELL_NO_ISSUER
+  xdrGetUnionArm (-10)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_BUY_NO_ISSUER
+  xdrGetUnionArm (-11)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_NOT_FOUND
+  xdrGetUnionArm (-12)
+    = Control.Applicative.pure
+        ManageSellOfferResult'MANAGE_SELL_OFFER_LOW_RESERVE
   xdrGetUnionArm _c
-    = ManageOfferResult'default Control.Applicative.<$>
-        XDR.xdrToEnum _c
+    = Prelude.fail "invalid ManageSellOfferResult discriminant"
+
+data ManageBuyOfferResultCode = MANAGE_BUY_OFFER_SUCCESS
+                              | MANAGE_BUY_OFFER_MALFORMED
+                              | MANAGE_BUY_OFFER_SELL_NO_TRUST
+                              | MANAGE_BUY_OFFER_BUY_NO_TRUST
+                              | MANAGE_BUY_OFFER_SELL_NOT_AUTHORIZED
+                              | MANAGE_BUY_OFFER_BUY_NOT_AUTHORIZED
+                              | MANAGE_BUY_OFFER_LINE_FULL
+                              | MANAGE_BUY_OFFER_UNDERFUNDED
+                              | MANAGE_BUY_OFFER_CROSS_SELF
+                              | MANAGE_BUY_OFFER_SELL_NO_ISSUER
+                              | MANAGE_BUY_OFFER_BUY_NO_ISSUER
+                              | MANAGE_BUY_OFFER_NOT_FOUND
+                              | MANAGE_BUY_OFFER_LOW_RESERVE
+                                deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                          Prelude.Show)
+
+instance XDR.XDR ManageBuyOfferResultCode where
+  xdrType _ = "ManageBuyOfferResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum ManageBuyOfferResultCode where
+  xdrFromEnum MANAGE_BUY_OFFER_SUCCESS = 0
+  xdrFromEnum MANAGE_BUY_OFFER_MALFORMED = -1
+  xdrFromEnum MANAGE_BUY_OFFER_SELL_NO_TRUST = -2
+  xdrFromEnum MANAGE_BUY_OFFER_BUY_NO_TRUST = -3
+  xdrFromEnum MANAGE_BUY_OFFER_SELL_NOT_AUTHORIZED = -4
+  xdrFromEnum MANAGE_BUY_OFFER_BUY_NOT_AUTHORIZED = -5
+  xdrFromEnum MANAGE_BUY_OFFER_LINE_FULL = -6
+  xdrFromEnum MANAGE_BUY_OFFER_UNDERFUNDED = -7
+  xdrFromEnum MANAGE_BUY_OFFER_CROSS_SELF = -8
+  xdrFromEnum MANAGE_BUY_OFFER_SELL_NO_ISSUER = -9
+  xdrFromEnum MANAGE_BUY_OFFER_BUY_NO_ISSUER = -10
+  xdrFromEnum MANAGE_BUY_OFFER_NOT_FOUND = -11
+  xdrFromEnum MANAGE_BUY_OFFER_LOW_RESERVE = -12
+  xdrToEnum 0 = Prelude.return MANAGE_BUY_OFFER_SUCCESS
+  xdrToEnum (-1) = Prelude.return MANAGE_BUY_OFFER_MALFORMED
+  xdrToEnum (-2) = Prelude.return MANAGE_BUY_OFFER_SELL_NO_TRUST
+  xdrToEnum (-3) = Prelude.return MANAGE_BUY_OFFER_BUY_NO_TRUST
+  xdrToEnum (-4)
+    = Prelude.return MANAGE_BUY_OFFER_SELL_NOT_AUTHORIZED
+  xdrToEnum (-5) = Prelude.return MANAGE_BUY_OFFER_BUY_NOT_AUTHORIZED
+  xdrToEnum (-6) = Prelude.return MANAGE_BUY_OFFER_LINE_FULL
+  xdrToEnum (-7) = Prelude.return MANAGE_BUY_OFFER_UNDERFUNDED
+  xdrToEnum (-8) = Prelude.return MANAGE_BUY_OFFER_CROSS_SELF
+  xdrToEnum (-9) = Prelude.return MANAGE_BUY_OFFER_SELL_NO_ISSUER
+  xdrToEnum (-10) = Prelude.return MANAGE_BUY_OFFER_BUY_NO_ISSUER
+  xdrToEnum (-11) = Prelude.return MANAGE_BUY_OFFER_NOT_FOUND
+  xdrToEnum (-12) = Prelude.return MANAGE_BUY_OFFER_LOW_RESERVE
+  xdrToEnum _ = Prelude.fail "invalid ManageBuyOfferResultCode"
+
+data ManageBuyOfferResult = ManageBuyOfferResult'MANAGE_BUY_OFFER_SUCCESS{manageBuyOfferResult'success
+                                                                          ::
+                                                                          !ManageOfferSuccessResult}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_MALFORMED{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_SELL_NO_TRUST{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_BUY_NO_TRUST{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_SELL_NOT_AUTHORIZED{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_BUY_NOT_AUTHORIZED{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_LINE_FULL{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_UNDERFUNDED{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_CROSS_SELF{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_SELL_NO_ISSUER{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_BUY_NO_ISSUER{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_NOT_FOUND{}
+                          | ManageBuyOfferResult'MANAGE_BUY_OFFER_LOW_RESERVE{}
+                            deriving (Prelude.Eq, Prelude.Show)
+
+manageBuyOfferResult'code ::
+                          ManageBuyOfferResult -> ManageBuyOfferResultCode
+manageBuyOfferResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR ManageBuyOfferResult where
+  xdrType _ = "ManageBuyOfferResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion ManageBuyOfferResult where
+  type XDRDiscriminant ManageBuyOfferResult =
+       ManageBuyOfferResultCode
+  xdrSplitUnion _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_SUCCESS{}
+    = (0, XDR.xdrPut (manageBuyOfferResult'success _x))
+  xdrSplitUnion _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_SELL_NO_TRUST{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_BUY_NO_TRUST{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_SELL_NOT_AUTHORIZED{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_BUY_NOT_AUTHORIZED{}
+    = (-5, Control.Applicative.pure ())
+  xdrSplitUnion _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_LINE_FULL{}
+    = (-6, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_UNDERFUNDED{}
+    = (-7, Control.Applicative.pure ())
+  xdrSplitUnion _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_CROSS_SELF{}
+    = (-8, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_SELL_NO_ISSUER{}
+    = (-9, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_BUY_NO_ISSUER{}
+    = (-10, Control.Applicative.pure ())
+  xdrSplitUnion _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_NOT_FOUND{}
+    = (-11, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ManageBuyOfferResult'MANAGE_BUY_OFFER_LOW_RESERVE{}
+    = (-12, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_SUCCESS
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_SELL_NO_TRUST
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_BUY_NO_TRUST
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_SELL_NOT_AUTHORIZED
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_BUY_NOT_AUTHORIZED
+  xdrGetUnionArm (-6)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_LINE_FULL
+  xdrGetUnionArm (-7)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_UNDERFUNDED
+  xdrGetUnionArm (-8)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_CROSS_SELF
+  xdrGetUnionArm (-9)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_SELL_NO_ISSUER
+  xdrGetUnionArm (-10)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_BUY_NO_ISSUER
+  xdrGetUnionArm (-11)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_NOT_FOUND
+  xdrGetUnionArm (-12)
+    = Control.Applicative.pure
+        ManageBuyOfferResult'MANAGE_BUY_OFFER_LOW_RESERVE
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid ManageBuyOfferResult discriminant"
 
 data SetOptionsResultCode = SET_OPTIONS_SUCCESS
                           | SET_OPTIONS_LOW_RESERVE
@@ -2085,8 +3588,10 @@ instance XDR.XDREnum ManageDataResultCode where
   xdrToEnum _ = Prelude.fail "invalid ManageDataResultCode"
 
 data ManageDataResult = ManageDataResult'MANAGE_DATA_SUCCESS{}
-                      | ManageDataResult'default{manageDataResult'code' ::
-                                                 !ManageDataResultCode}
+                      | ManageDataResult'MANAGE_DATA_NOT_SUPPORTED_YET{}
+                      | ManageDataResult'MANAGE_DATA_NAME_NOT_FOUND{}
+                      | ManageDataResult'MANAGE_DATA_LOW_RESERVE{}
+                      | ManageDataResult'MANAGE_DATA_INVALID_NAME{}
                         deriving (Prelude.Eq, Prelude.Show)
 
 manageDataResult'code :: ManageDataResult -> ManageDataResultCode
@@ -2101,17 +3606,911 @@ instance XDR.XDRUnion ManageDataResult where
   type XDRDiscriminant ManageDataResult = ManageDataResultCode
   xdrSplitUnion _x@ManageDataResult'MANAGE_DATA_SUCCESS{}
     = (0, Control.Applicative.pure ())
-  xdrSplitUnion
-    _x@ManageDataResult'default{manageDataResult'code' = d}
-    = (XDR.xdrFromEnum d, Control.Applicative.pure ())
+  xdrSplitUnion _x@ManageDataResult'MANAGE_DATA_NOT_SUPPORTED_YET{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion _x@ManageDataResult'MANAGE_DATA_NAME_NOT_FOUND{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion _x@ManageDataResult'MANAGE_DATA_LOW_RESERVE{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion _x@ManageDataResult'MANAGE_DATA_INVALID_NAME{}
+    = (-4, Control.Applicative.pure ())
   xdrGetUnionArm 0
     = Control.Applicative.pure ManageDataResult'MANAGE_DATA_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        ManageDataResult'MANAGE_DATA_NOT_SUPPORTED_YET
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        ManageDataResult'MANAGE_DATA_NAME_NOT_FOUND
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure ManageDataResult'MANAGE_DATA_LOW_RESERVE
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        ManageDataResult'MANAGE_DATA_INVALID_NAME
   xdrGetUnionArm _c
-    = ManageDataResult'default Control.Applicative.<$> XDR.xdrToEnum _c
+    = Prelude.fail "invalid ManageDataResult discriminant"
 
-data OperationResultCode = OPERATION_RESULT_INNER
-                         | OPERATION_RESULT_BAD_AUTH
-                         | OPERATION_RESULT_NO_ACCOUNT
+data BumpSequenceResultCode = BUMP_SEQUENCE_SUCCESS
+                            | BUMP_SEQUENCE_BAD_SEQ
+                              deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                        Prelude.Show)
+
+instance XDR.XDR BumpSequenceResultCode where
+  xdrType _ = "BumpSequenceResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum BumpSequenceResultCode where
+  xdrFromEnum BUMP_SEQUENCE_SUCCESS = 0
+  xdrFromEnum BUMP_SEQUENCE_BAD_SEQ = -1
+  xdrToEnum 0 = Prelude.return BUMP_SEQUENCE_SUCCESS
+  xdrToEnum (-1) = Prelude.return BUMP_SEQUENCE_BAD_SEQ
+  xdrToEnum _ = Prelude.fail "invalid BumpSequenceResultCode"
+
+data BumpSequenceResult = BumpSequenceResult'BUMP_SEQUENCE_SUCCESS{}
+                        | BumpSequenceResult'BUMP_SEQUENCE_BAD_SEQ{}
+                          deriving (Prelude.Eq, Prelude.Show)
+
+bumpSequenceResult'code ::
+                        BumpSequenceResult -> BumpSequenceResultCode
+bumpSequenceResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR BumpSequenceResult where
+  xdrType _ = "BumpSequenceResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion BumpSequenceResult where
+  type XDRDiscriminant BumpSequenceResult = BumpSequenceResultCode
+  xdrSplitUnion _x@BumpSequenceResult'BUMP_SEQUENCE_SUCCESS{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion _x@BumpSequenceResult'BUMP_SEQUENCE_BAD_SEQ{}
+    = (-1, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure BumpSequenceResult'BUMP_SEQUENCE_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure BumpSequenceResult'BUMP_SEQUENCE_BAD_SEQ
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid BumpSequenceResult discriminant"
+
+data CreateClaimableBalanceResultCode = CREATE_CLAIMABLE_BALANCE_SUCCESS
+                                      | CREATE_CLAIMABLE_BALANCE_MALFORMED
+                                      | CREATE_CLAIMABLE_BALANCE_LOW_RESERVE
+                                      | CREATE_CLAIMABLE_BALANCE_NO_TRUST
+                                      | CREATE_CLAIMABLE_BALANCE_NOT_AUTHORIZED
+                                      | CREATE_CLAIMABLE_BALANCE_UNDERFUNDED
+                                        deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum,
+                                                  Prelude.Bounded, Prelude.Show)
+
+instance XDR.XDR CreateClaimableBalanceResultCode where
+  xdrType _ = "CreateClaimableBalanceResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum CreateClaimableBalanceResultCode where
+  xdrFromEnum CREATE_CLAIMABLE_BALANCE_SUCCESS = 0
+  xdrFromEnum CREATE_CLAIMABLE_BALANCE_MALFORMED = -1
+  xdrFromEnum CREATE_CLAIMABLE_BALANCE_LOW_RESERVE = -2
+  xdrFromEnum CREATE_CLAIMABLE_BALANCE_NO_TRUST = -3
+  xdrFromEnum CREATE_CLAIMABLE_BALANCE_NOT_AUTHORIZED = -4
+  xdrFromEnum CREATE_CLAIMABLE_BALANCE_UNDERFUNDED = -5
+  xdrToEnum 0 = Prelude.return CREATE_CLAIMABLE_BALANCE_SUCCESS
+  xdrToEnum (-1) = Prelude.return CREATE_CLAIMABLE_BALANCE_MALFORMED
+  xdrToEnum (-2)
+    = Prelude.return CREATE_CLAIMABLE_BALANCE_LOW_RESERVE
+  xdrToEnum (-3) = Prelude.return CREATE_CLAIMABLE_BALANCE_NO_TRUST
+  xdrToEnum (-4)
+    = Prelude.return CREATE_CLAIMABLE_BALANCE_NOT_AUTHORIZED
+  xdrToEnum (-5)
+    = Prelude.return CREATE_CLAIMABLE_BALANCE_UNDERFUNDED
+  xdrToEnum _
+    = Prelude.fail "invalid CreateClaimableBalanceResultCode"
+
+data CreateClaimableBalanceResult = CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_SUCCESS{createClaimableBalanceResult'balanceID
+                                                                                                  ::
+                                                                                                  !ClaimableBalanceID}
+                                  | CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_MALFORMED{}
+                                  | CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_LOW_RESERVE{}
+                                  | CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_NO_TRUST{}
+                                  | CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_NOT_AUTHORIZED{}
+                                  | CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_UNDERFUNDED{}
+                                    deriving (Prelude.Eq, Prelude.Show)
+
+createClaimableBalanceResult'code ::
+                                  CreateClaimableBalanceResult -> CreateClaimableBalanceResultCode
+createClaimableBalanceResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR CreateClaimableBalanceResult where
+  xdrType _ = "CreateClaimableBalanceResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion CreateClaimableBalanceResult where
+  type XDRDiscriminant CreateClaimableBalanceResult =
+       CreateClaimableBalanceResultCode
+  xdrSplitUnion
+    _x@CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_SUCCESS{}
+    = (0, XDR.xdrPut (createClaimableBalanceResult'balanceID _x))
+  xdrSplitUnion
+    _x@CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_LOW_RESERVE{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_NO_TRUST{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_NOT_AUTHORIZED{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_UNDERFUNDED{}
+    = (-5, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_SUCCESS
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_LOW_RESERVE
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_NO_TRUST
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_NOT_AUTHORIZED
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure
+        CreateClaimableBalanceResult'CREATE_CLAIMABLE_BALANCE_UNDERFUNDED
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid CreateClaimableBalanceResult discriminant"
+
+data ClaimClaimableBalanceResultCode = CLAIM_CLAIMABLE_BALANCE_SUCCESS
+                                     | CLAIM_CLAIMABLE_BALANCE_DOES_NOT_EXIST
+                                     | CLAIM_CLAIMABLE_BALANCE_CANNOT_CLAIM
+                                     | CLAIM_CLAIMABLE_BALANCE_LINE_FULL
+                                     | CLAIM_CLAIMABLE_BALANCE_NO_TRUST
+                                     | CLAIM_CLAIMABLE_BALANCE_NOT_AUTHORIZED
+                                       deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum,
+                                                 Prelude.Bounded, Prelude.Show)
+
+instance XDR.XDR ClaimClaimableBalanceResultCode where
+  xdrType _ = "ClaimClaimableBalanceResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum ClaimClaimableBalanceResultCode where
+  xdrFromEnum CLAIM_CLAIMABLE_BALANCE_SUCCESS = 0
+  xdrFromEnum CLAIM_CLAIMABLE_BALANCE_DOES_NOT_EXIST = -1
+  xdrFromEnum CLAIM_CLAIMABLE_BALANCE_CANNOT_CLAIM = -2
+  xdrFromEnum CLAIM_CLAIMABLE_BALANCE_LINE_FULL = -3
+  xdrFromEnum CLAIM_CLAIMABLE_BALANCE_NO_TRUST = -4
+  xdrFromEnum CLAIM_CLAIMABLE_BALANCE_NOT_AUTHORIZED = -5
+  xdrToEnum 0 = Prelude.return CLAIM_CLAIMABLE_BALANCE_SUCCESS
+  xdrToEnum (-1)
+    = Prelude.return CLAIM_CLAIMABLE_BALANCE_DOES_NOT_EXIST
+  xdrToEnum (-2)
+    = Prelude.return CLAIM_CLAIMABLE_BALANCE_CANNOT_CLAIM
+  xdrToEnum (-3) = Prelude.return CLAIM_CLAIMABLE_BALANCE_LINE_FULL
+  xdrToEnum (-4) = Prelude.return CLAIM_CLAIMABLE_BALANCE_NO_TRUST
+  xdrToEnum (-5)
+    = Prelude.return CLAIM_CLAIMABLE_BALANCE_NOT_AUTHORIZED
+  xdrToEnum _
+    = Prelude.fail "invalid ClaimClaimableBalanceResultCode"
+
+data ClaimClaimableBalanceResult = ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_SUCCESS{}
+                                 | ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_DOES_NOT_EXIST{}
+                                 | ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_CANNOT_CLAIM{}
+                                 | ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_LINE_FULL{}
+                                 | ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_NO_TRUST{}
+                                 | ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_NOT_AUTHORIZED{}
+                                   deriving (Prelude.Eq, Prelude.Show)
+
+claimClaimableBalanceResult'code ::
+                                 ClaimClaimableBalanceResult -> ClaimClaimableBalanceResultCode
+claimClaimableBalanceResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR ClaimClaimableBalanceResult where
+  xdrType _ = "ClaimClaimableBalanceResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion ClaimClaimableBalanceResult where
+  type XDRDiscriminant ClaimClaimableBalanceResult =
+       ClaimClaimableBalanceResultCode
+  xdrSplitUnion
+    _x@ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_SUCCESS{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_DOES_NOT_EXIST{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_CANNOT_CLAIM{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_LINE_FULL{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_NO_TRUST{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_NOT_AUTHORIZED{}
+    = (-5, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_DOES_NOT_EXIST
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_CANNOT_CLAIM
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_LINE_FULL
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_NO_TRUST
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure
+        ClaimClaimableBalanceResult'CLAIM_CLAIMABLE_BALANCE_NOT_AUTHORIZED
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid ClaimClaimableBalanceResult discriminant"
+
+data BeginSponsoringFutureReservesResultCode = BEGIN_SPONSORING_FUTURE_RESERVES_SUCCESS
+                                             | BEGIN_SPONSORING_FUTURE_RESERVES_MALFORMED
+                                             | BEGIN_SPONSORING_FUTURE_RESERVES_ALREADY_SPONSORED
+                                             | BEGIN_SPONSORING_FUTURE_RESERVES_RECURSIVE
+                                               deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum,
+                                                         Prelude.Bounded, Prelude.Show)
+
+instance XDR.XDR BeginSponsoringFutureReservesResultCode where
+  xdrType _ = "BeginSponsoringFutureReservesResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum BeginSponsoringFutureReservesResultCode where
+  xdrFromEnum BEGIN_SPONSORING_FUTURE_RESERVES_SUCCESS = 0
+  xdrFromEnum BEGIN_SPONSORING_FUTURE_RESERVES_MALFORMED = -1
+  xdrFromEnum BEGIN_SPONSORING_FUTURE_RESERVES_ALREADY_SPONSORED = -2
+  xdrFromEnum BEGIN_SPONSORING_FUTURE_RESERVES_RECURSIVE = -3
+  xdrToEnum 0
+    = Prelude.return BEGIN_SPONSORING_FUTURE_RESERVES_SUCCESS
+  xdrToEnum (-1)
+    = Prelude.return BEGIN_SPONSORING_FUTURE_RESERVES_MALFORMED
+  xdrToEnum (-2)
+    = Prelude.return BEGIN_SPONSORING_FUTURE_RESERVES_ALREADY_SPONSORED
+  xdrToEnum (-3)
+    = Prelude.return BEGIN_SPONSORING_FUTURE_RESERVES_RECURSIVE
+  xdrToEnum _
+    = Prelude.fail "invalid BeginSponsoringFutureReservesResultCode"
+
+data BeginSponsoringFutureReservesResult = BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_SUCCESS{}
+                                         | BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_MALFORMED{}
+                                         | BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_ALREADY_SPONSORED{}
+                                         | BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_RECURSIVE{}
+                                           deriving (Prelude.Eq, Prelude.Show)
+
+beginSponsoringFutureReservesResult'code ::
+                                         BeginSponsoringFutureReservesResult ->
+                                           BeginSponsoringFutureReservesResultCode
+beginSponsoringFutureReservesResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR BeginSponsoringFutureReservesResult where
+  xdrType _ = "BeginSponsoringFutureReservesResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion BeginSponsoringFutureReservesResult where
+  type XDRDiscriminant BeginSponsoringFutureReservesResult =
+       BeginSponsoringFutureReservesResultCode
+  xdrSplitUnion
+    _x@BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_SUCCESS{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_ALREADY_SPONSORED{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_RECURSIVE{}
+    = (-3, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_ALREADY_SPONSORED
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        BeginSponsoringFutureReservesResult'BEGIN_SPONSORING_FUTURE_RESERVES_RECURSIVE
+  xdrGetUnionArm _c
+    = Prelude.fail
+        "invalid BeginSponsoringFutureReservesResult discriminant"
+
+data EndSponsoringFutureReservesResultCode = END_SPONSORING_FUTURE_RESERVES_SUCCESS
+                                           | END_SPONSORING_FUTURE_RESERVES_NOT_SPONSORED
+                                             deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum,
+                                                       Prelude.Bounded, Prelude.Show)
+
+instance XDR.XDR EndSponsoringFutureReservesResultCode where
+  xdrType _ = "EndSponsoringFutureReservesResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum EndSponsoringFutureReservesResultCode where
+  xdrFromEnum END_SPONSORING_FUTURE_RESERVES_SUCCESS = 0
+  xdrFromEnum END_SPONSORING_FUTURE_RESERVES_NOT_SPONSORED = -1
+  xdrToEnum 0 = Prelude.return END_SPONSORING_FUTURE_RESERVES_SUCCESS
+  xdrToEnum (-1)
+    = Prelude.return END_SPONSORING_FUTURE_RESERVES_NOT_SPONSORED
+  xdrToEnum _
+    = Prelude.fail "invalid EndSponsoringFutureReservesResultCode"
+
+data EndSponsoringFutureReservesResult = EndSponsoringFutureReservesResult'END_SPONSORING_FUTURE_RESERVES_SUCCESS{}
+                                       | EndSponsoringFutureReservesResult'END_SPONSORING_FUTURE_RESERVES_NOT_SPONSORED{}
+                                         deriving (Prelude.Eq, Prelude.Show)
+
+endSponsoringFutureReservesResult'code ::
+                                       EndSponsoringFutureReservesResult ->
+                                         EndSponsoringFutureReservesResultCode
+endSponsoringFutureReservesResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR EndSponsoringFutureReservesResult where
+  xdrType _ = "EndSponsoringFutureReservesResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion EndSponsoringFutureReservesResult where
+  type XDRDiscriminant EndSponsoringFutureReservesResult =
+       EndSponsoringFutureReservesResultCode
+  xdrSplitUnion
+    _x@EndSponsoringFutureReservesResult'END_SPONSORING_FUTURE_RESERVES_SUCCESS{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@EndSponsoringFutureReservesResult'END_SPONSORING_FUTURE_RESERVES_NOT_SPONSORED{}
+    = (-1, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        EndSponsoringFutureReservesResult'END_SPONSORING_FUTURE_RESERVES_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        EndSponsoringFutureReservesResult'END_SPONSORING_FUTURE_RESERVES_NOT_SPONSORED
+  xdrGetUnionArm _c
+    = Prelude.fail
+        "invalid EndSponsoringFutureReservesResult discriminant"
+
+data RevokeSponsorshipResultCode = REVOKE_SPONSORSHIP_SUCCESS
+                                 | REVOKE_SPONSORSHIP_DOES_NOT_EXIST
+                                 | REVOKE_SPONSORSHIP_NOT_SPONSOR
+                                 | REVOKE_SPONSORSHIP_LOW_RESERVE
+                                 | REVOKE_SPONSORSHIP_ONLY_TRANSFERABLE
+                                 | REVOKE_SPONSORSHIP_MALFORMED
+                                   deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                             Prelude.Show)
+
+instance XDR.XDR RevokeSponsorshipResultCode where
+  xdrType _ = "RevokeSponsorshipResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum RevokeSponsorshipResultCode where
+  xdrFromEnum REVOKE_SPONSORSHIP_SUCCESS = 0
+  xdrFromEnum REVOKE_SPONSORSHIP_DOES_NOT_EXIST = -1
+  xdrFromEnum REVOKE_SPONSORSHIP_NOT_SPONSOR = -2
+  xdrFromEnum REVOKE_SPONSORSHIP_LOW_RESERVE = -3
+  xdrFromEnum REVOKE_SPONSORSHIP_ONLY_TRANSFERABLE = -4
+  xdrFromEnum REVOKE_SPONSORSHIP_MALFORMED = -5
+  xdrToEnum 0 = Prelude.return REVOKE_SPONSORSHIP_SUCCESS
+  xdrToEnum (-1) = Prelude.return REVOKE_SPONSORSHIP_DOES_NOT_EXIST
+  xdrToEnum (-2) = Prelude.return REVOKE_SPONSORSHIP_NOT_SPONSOR
+  xdrToEnum (-3) = Prelude.return REVOKE_SPONSORSHIP_LOW_RESERVE
+  xdrToEnum (-4)
+    = Prelude.return REVOKE_SPONSORSHIP_ONLY_TRANSFERABLE
+  xdrToEnum (-5) = Prelude.return REVOKE_SPONSORSHIP_MALFORMED
+  xdrToEnum _ = Prelude.fail "invalid RevokeSponsorshipResultCode"
+
+data RevokeSponsorshipResult = RevokeSponsorshipResult'REVOKE_SPONSORSHIP_SUCCESS{}
+                             | RevokeSponsorshipResult'REVOKE_SPONSORSHIP_DOES_NOT_EXIST{}
+                             | RevokeSponsorshipResult'REVOKE_SPONSORSHIP_NOT_SPONSOR{}
+                             | RevokeSponsorshipResult'REVOKE_SPONSORSHIP_LOW_RESERVE{}
+                             | RevokeSponsorshipResult'REVOKE_SPONSORSHIP_ONLY_TRANSFERABLE{}
+                             | RevokeSponsorshipResult'REVOKE_SPONSORSHIP_MALFORMED{}
+                               deriving (Prelude.Eq, Prelude.Show)
+
+revokeSponsorshipResult'code ::
+                             RevokeSponsorshipResult -> RevokeSponsorshipResultCode
+revokeSponsorshipResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR RevokeSponsorshipResult where
+  xdrType _ = "RevokeSponsorshipResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion RevokeSponsorshipResult where
+  type XDRDiscriminant RevokeSponsorshipResult =
+       RevokeSponsorshipResultCode
+  xdrSplitUnion
+    _x@RevokeSponsorshipResult'REVOKE_SPONSORSHIP_SUCCESS{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@RevokeSponsorshipResult'REVOKE_SPONSORSHIP_DOES_NOT_EXIST{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@RevokeSponsorshipResult'REVOKE_SPONSORSHIP_NOT_SPONSOR{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@RevokeSponsorshipResult'REVOKE_SPONSORSHIP_LOW_RESERVE{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@RevokeSponsorshipResult'REVOKE_SPONSORSHIP_ONLY_TRANSFERABLE{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@RevokeSponsorshipResult'REVOKE_SPONSORSHIP_MALFORMED{}
+    = (-5, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        RevokeSponsorshipResult'REVOKE_SPONSORSHIP_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        RevokeSponsorshipResult'REVOKE_SPONSORSHIP_DOES_NOT_EXIST
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        RevokeSponsorshipResult'REVOKE_SPONSORSHIP_NOT_SPONSOR
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        RevokeSponsorshipResult'REVOKE_SPONSORSHIP_LOW_RESERVE
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        RevokeSponsorshipResult'REVOKE_SPONSORSHIP_ONLY_TRANSFERABLE
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure
+        RevokeSponsorshipResult'REVOKE_SPONSORSHIP_MALFORMED
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid RevokeSponsorshipResult discriminant"
+
+data ClawbackResultCode = CLAWBACK_SUCCESS
+                        | CLAWBACK_MALFORMED
+                        | CLAWBACK_NOT_CLAWBACK_ENABLED
+                        | CLAWBACK_NO_TRUST
+                        | CLAWBACK_UNDERFUNDED
+                          deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                    Prelude.Show)
+
+instance XDR.XDR ClawbackResultCode where
+  xdrType _ = "ClawbackResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum ClawbackResultCode where
+  xdrFromEnum CLAWBACK_SUCCESS = 0
+  xdrFromEnum CLAWBACK_MALFORMED = -1
+  xdrFromEnum CLAWBACK_NOT_CLAWBACK_ENABLED = -2
+  xdrFromEnum CLAWBACK_NO_TRUST = -3
+  xdrFromEnum CLAWBACK_UNDERFUNDED = -4
+  xdrToEnum 0 = Prelude.return CLAWBACK_SUCCESS
+  xdrToEnum (-1) = Prelude.return CLAWBACK_MALFORMED
+  xdrToEnum (-2) = Prelude.return CLAWBACK_NOT_CLAWBACK_ENABLED
+  xdrToEnum (-3) = Prelude.return CLAWBACK_NO_TRUST
+  xdrToEnum (-4) = Prelude.return CLAWBACK_UNDERFUNDED
+  xdrToEnum _ = Prelude.fail "invalid ClawbackResultCode"
+
+data ClawbackResult = ClawbackResult'CLAWBACK_SUCCESS{}
+                    | ClawbackResult'CLAWBACK_MALFORMED{}
+                    | ClawbackResult'CLAWBACK_NOT_CLAWBACK_ENABLED{}
+                    | ClawbackResult'CLAWBACK_NO_TRUST{}
+                    | ClawbackResult'CLAWBACK_UNDERFUNDED{}
+                      deriving (Prelude.Eq, Prelude.Show)
+
+clawbackResult'code :: ClawbackResult -> ClawbackResultCode
+clawbackResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR ClawbackResult where
+  xdrType _ = "ClawbackResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion ClawbackResult where
+  type XDRDiscriminant ClawbackResult = ClawbackResultCode
+  xdrSplitUnion _x@ClawbackResult'CLAWBACK_SUCCESS{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion _x@ClawbackResult'CLAWBACK_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion _x@ClawbackResult'CLAWBACK_NOT_CLAWBACK_ENABLED{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion _x@ClawbackResult'CLAWBACK_NO_TRUST{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion _x@ClawbackResult'CLAWBACK_UNDERFUNDED{}
+    = (-4, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure ClawbackResult'CLAWBACK_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure ClawbackResult'CLAWBACK_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        ClawbackResult'CLAWBACK_NOT_CLAWBACK_ENABLED
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure ClawbackResult'CLAWBACK_NO_TRUST
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure ClawbackResult'CLAWBACK_UNDERFUNDED
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid ClawbackResult discriminant"
+
+data ClawbackClaimableBalanceResultCode = CLAWBACK_CLAIMABLE_BALANCE_SUCCESS
+                                        | CLAWBACK_CLAIMABLE_BALANCE_DOES_NOT_EXIST
+                                        | CLAWBACK_CLAIMABLE_BALANCE_NOT_ISSUER
+                                        | CLAWBACK_CLAIMABLE_BALANCE_NOT_CLAWBACK_ENABLED
+                                          deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum,
+                                                    Prelude.Bounded, Prelude.Show)
+
+instance XDR.XDR ClawbackClaimableBalanceResultCode where
+  xdrType _ = "ClawbackClaimableBalanceResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum ClawbackClaimableBalanceResultCode where
+  xdrFromEnum CLAWBACK_CLAIMABLE_BALANCE_SUCCESS = 0
+  xdrFromEnum CLAWBACK_CLAIMABLE_BALANCE_DOES_NOT_EXIST = -1
+  xdrFromEnum CLAWBACK_CLAIMABLE_BALANCE_NOT_ISSUER = -2
+  xdrFromEnum CLAWBACK_CLAIMABLE_BALANCE_NOT_CLAWBACK_ENABLED = -3
+  xdrToEnum 0 = Prelude.return CLAWBACK_CLAIMABLE_BALANCE_SUCCESS
+  xdrToEnum (-1)
+    = Prelude.return CLAWBACK_CLAIMABLE_BALANCE_DOES_NOT_EXIST
+  xdrToEnum (-2)
+    = Prelude.return CLAWBACK_CLAIMABLE_BALANCE_NOT_ISSUER
+  xdrToEnum (-3)
+    = Prelude.return CLAWBACK_CLAIMABLE_BALANCE_NOT_CLAWBACK_ENABLED
+  xdrToEnum _
+    = Prelude.fail "invalid ClawbackClaimableBalanceResultCode"
+
+data ClawbackClaimableBalanceResult = ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_SUCCESS{}
+                                    | ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_DOES_NOT_EXIST{}
+                                    | ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_NOT_ISSUER{}
+                                    | ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_NOT_CLAWBACK_ENABLED{}
+                                      deriving (Prelude.Eq, Prelude.Show)
+
+clawbackClaimableBalanceResult'code ::
+                                    ClawbackClaimableBalanceResult ->
+                                      ClawbackClaimableBalanceResultCode
+clawbackClaimableBalanceResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR ClawbackClaimableBalanceResult where
+  xdrType _ = "ClawbackClaimableBalanceResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion ClawbackClaimableBalanceResult where
+  type XDRDiscriminant ClawbackClaimableBalanceResult =
+       ClawbackClaimableBalanceResultCode
+  xdrSplitUnion
+    _x@ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_SUCCESS{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_DOES_NOT_EXIST{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_NOT_ISSUER{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_NOT_CLAWBACK_ENABLED{}
+    = (-3, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_DOES_NOT_EXIST
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_NOT_ISSUER
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        ClawbackClaimableBalanceResult'CLAWBACK_CLAIMABLE_BALANCE_NOT_CLAWBACK_ENABLED
+  xdrGetUnionArm _c
+    = Prelude.fail
+        "invalid ClawbackClaimableBalanceResult discriminant"
+
+data SetTrustLineFlagsResultCode = SET_TRUST_LINE_FLAGS_SUCCESS
+                                 | SET_TRUST_LINE_FLAGS_MALFORMED
+                                 | SET_TRUST_LINE_FLAGS_NO_TRUST_LINE
+                                 | SET_TRUST_LINE_FLAGS_CANT_REVOKE
+                                 | SET_TRUST_LINE_FLAGS_INVALID_STATE
+                                 | SET_TRUST_LINE_FLAGS_LOW_RESERVE
+                                   deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
+                                             Prelude.Show)
+
+instance XDR.XDR SetTrustLineFlagsResultCode where
+  xdrType _ = "SetTrustLineFlagsResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum SetTrustLineFlagsResultCode where
+  xdrFromEnum SET_TRUST_LINE_FLAGS_SUCCESS = 0
+  xdrFromEnum SET_TRUST_LINE_FLAGS_MALFORMED = -1
+  xdrFromEnum SET_TRUST_LINE_FLAGS_NO_TRUST_LINE = -2
+  xdrFromEnum SET_TRUST_LINE_FLAGS_CANT_REVOKE = -3
+  xdrFromEnum SET_TRUST_LINE_FLAGS_INVALID_STATE = -4
+  xdrFromEnum SET_TRUST_LINE_FLAGS_LOW_RESERVE = -5
+  xdrToEnum 0 = Prelude.return SET_TRUST_LINE_FLAGS_SUCCESS
+  xdrToEnum (-1) = Prelude.return SET_TRUST_LINE_FLAGS_MALFORMED
+  xdrToEnum (-2) = Prelude.return SET_TRUST_LINE_FLAGS_NO_TRUST_LINE
+  xdrToEnum (-3) = Prelude.return SET_TRUST_LINE_FLAGS_CANT_REVOKE
+  xdrToEnum (-4) = Prelude.return SET_TRUST_LINE_FLAGS_INVALID_STATE
+  xdrToEnum (-5) = Prelude.return SET_TRUST_LINE_FLAGS_LOW_RESERVE
+  xdrToEnum _ = Prelude.fail "invalid SetTrustLineFlagsResultCode"
+
+data SetTrustLineFlagsResult = SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_SUCCESS{}
+                             | SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_MALFORMED{}
+                             | SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_NO_TRUST_LINE{}
+                             | SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_CANT_REVOKE{}
+                             | SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_INVALID_STATE{}
+                             | SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_LOW_RESERVE{}
+                               deriving (Prelude.Eq, Prelude.Show)
+
+setTrustLineFlagsResult'code ::
+                             SetTrustLineFlagsResult -> SetTrustLineFlagsResultCode
+setTrustLineFlagsResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR SetTrustLineFlagsResult where
+  xdrType _ = "SetTrustLineFlagsResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion SetTrustLineFlagsResult where
+  type XDRDiscriminant SetTrustLineFlagsResult =
+       SetTrustLineFlagsResultCode
+  xdrSplitUnion
+    _x@SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_SUCCESS{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_NO_TRUST_LINE{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_CANT_REVOKE{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_INVALID_STATE{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_LOW_RESERVE{}
+    = (-5, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_NO_TRUST_LINE
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_CANT_REVOKE
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_INVALID_STATE
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure
+        SetTrustLineFlagsResult'SET_TRUST_LINE_FLAGS_LOW_RESERVE
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid SetTrustLineFlagsResult discriminant"
+
+data LiquidityPoolDepositResultCode = LIQUIDITY_POOL_DEPOSIT_SUCCESS
+                                    | LIQUIDITY_POOL_DEPOSIT_MALFORMED
+                                    | LIQUIDITY_POOL_DEPOSIT_NO_TRUST
+                                    | LIQUIDITY_POOL_DEPOSIT_NOT_AUTHORIZED
+                                    | LIQUIDITY_POOL_DEPOSIT_UNDERFUNDED
+                                    | LIQUIDITY_POOL_DEPOSIT_LINE_FULL
+                                    | LIQUIDITY_POOL_DEPOSIT_BAD_PRICE
+                                    | LIQUIDITY_POOL_DEPOSIT_POOL_FULL
+                                      deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum,
+                                                Prelude.Bounded, Prelude.Show)
+
+instance XDR.XDR LiquidityPoolDepositResultCode where
+  xdrType _ = "LiquidityPoolDepositResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum LiquidityPoolDepositResultCode where
+  xdrFromEnum LIQUIDITY_POOL_DEPOSIT_SUCCESS = 0
+  xdrFromEnum LIQUIDITY_POOL_DEPOSIT_MALFORMED = -1
+  xdrFromEnum LIQUIDITY_POOL_DEPOSIT_NO_TRUST = -2
+  xdrFromEnum LIQUIDITY_POOL_DEPOSIT_NOT_AUTHORIZED = -3
+  xdrFromEnum LIQUIDITY_POOL_DEPOSIT_UNDERFUNDED = -4
+  xdrFromEnum LIQUIDITY_POOL_DEPOSIT_LINE_FULL = -5
+  xdrFromEnum LIQUIDITY_POOL_DEPOSIT_BAD_PRICE = -6
+  xdrFromEnum LIQUIDITY_POOL_DEPOSIT_POOL_FULL = -7
+  xdrToEnum 0 = Prelude.return LIQUIDITY_POOL_DEPOSIT_SUCCESS
+  xdrToEnum (-1) = Prelude.return LIQUIDITY_POOL_DEPOSIT_MALFORMED
+  xdrToEnum (-2) = Prelude.return LIQUIDITY_POOL_DEPOSIT_NO_TRUST
+  xdrToEnum (-3)
+    = Prelude.return LIQUIDITY_POOL_DEPOSIT_NOT_AUTHORIZED
+  xdrToEnum (-4) = Prelude.return LIQUIDITY_POOL_DEPOSIT_UNDERFUNDED
+  xdrToEnum (-5) = Prelude.return LIQUIDITY_POOL_DEPOSIT_LINE_FULL
+  xdrToEnum (-6) = Prelude.return LIQUIDITY_POOL_DEPOSIT_BAD_PRICE
+  xdrToEnum (-7) = Prelude.return LIQUIDITY_POOL_DEPOSIT_POOL_FULL
+  xdrToEnum _ = Prelude.fail "invalid LiquidityPoolDepositResultCode"
+
+data LiquidityPoolDepositResult = LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_SUCCESS{}
+                                | LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_MALFORMED{}
+                                | LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_NO_TRUST{}
+                                | LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_NOT_AUTHORIZED{}
+                                | LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_UNDERFUNDED{}
+                                | LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_LINE_FULL{}
+                                | LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_BAD_PRICE{}
+                                | LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_POOL_FULL{}
+                                  deriving (Prelude.Eq, Prelude.Show)
+
+liquidityPoolDepositResult'code ::
+                                LiquidityPoolDepositResult -> LiquidityPoolDepositResultCode
+liquidityPoolDepositResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR LiquidityPoolDepositResult where
+  xdrType _ = "LiquidityPoolDepositResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion LiquidityPoolDepositResult where
+  type XDRDiscriminant LiquidityPoolDepositResult =
+       LiquidityPoolDepositResultCode
+  xdrSplitUnion
+    _x@LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_SUCCESS{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_NO_TRUST{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_NOT_AUTHORIZED{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_UNDERFUNDED{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_LINE_FULL{}
+    = (-5, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_BAD_PRICE{}
+    = (-6, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_POOL_FULL{}
+    = (-7, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_NO_TRUST
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_NOT_AUTHORIZED
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_UNDERFUNDED
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure
+        LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_LINE_FULL
+  xdrGetUnionArm (-6)
+    = Control.Applicative.pure
+        LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_BAD_PRICE
+  xdrGetUnionArm (-7)
+    = Control.Applicative.pure
+        LiquidityPoolDepositResult'LIQUIDITY_POOL_DEPOSIT_POOL_FULL
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid LiquidityPoolDepositResult discriminant"
+
+data LiquidityPoolWithdrawResultCode = LIQUIDITY_POOL_WITHDRAW_SUCCESS
+                                     | LIQUIDITY_POOL_WITHDRAW_MALFORMED
+                                     | LIQUIDITY_POOL_WITHDRAW_NO_TRUST
+                                     | LIQUIDITY_POOL_WITHDRAW_UNDERFUNDED
+                                     | LIQUIDITY_POOL_WITHDRAW_LINE_FULL
+                                     | LIQUIDITY_POOL_WITHDRAW_UNDER_MINIMUM
+                                       deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum,
+                                                 Prelude.Bounded, Prelude.Show)
+
+instance XDR.XDR LiquidityPoolWithdrawResultCode where
+  xdrType _ = "LiquidityPoolWithdrawResultCode"
+  xdrPut = XDR.xdrPutEnum
+  xdrGet = XDR.xdrGetEnum
+
+instance XDR.XDREnum LiquidityPoolWithdrawResultCode where
+  xdrFromEnum LIQUIDITY_POOL_WITHDRAW_SUCCESS = 0
+  xdrFromEnum LIQUIDITY_POOL_WITHDRAW_MALFORMED = -1
+  xdrFromEnum LIQUIDITY_POOL_WITHDRAW_NO_TRUST = -2
+  xdrFromEnum LIQUIDITY_POOL_WITHDRAW_UNDERFUNDED = -3
+  xdrFromEnum LIQUIDITY_POOL_WITHDRAW_LINE_FULL = -4
+  xdrFromEnum LIQUIDITY_POOL_WITHDRAW_UNDER_MINIMUM = -5
+  xdrToEnum 0 = Prelude.return LIQUIDITY_POOL_WITHDRAW_SUCCESS
+  xdrToEnum (-1) = Prelude.return LIQUIDITY_POOL_WITHDRAW_MALFORMED
+  xdrToEnum (-2) = Prelude.return LIQUIDITY_POOL_WITHDRAW_NO_TRUST
+  xdrToEnum (-3) = Prelude.return LIQUIDITY_POOL_WITHDRAW_UNDERFUNDED
+  xdrToEnum (-4) = Prelude.return LIQUIDITY_POOL_WITHDRAW_LINE_FULL
+  xdrToEnum (-5)
+    = Prelude.return LIQUIDITY_POOL_WITHDRAW_UNDER_MINIMUM
+  xdrToEnum _
+    = Prelude.fail "invalid LiquidityPoolWithdrawResultCode"
+
+data LiquidityPoolWithdrawResult = LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_SUCCESS{}
+                                 | LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_MALFORMED{}
+                                 | LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_NO_TRUST{}
+                                 | LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_UNDERFUNDED{}
+                                 | LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_LINE_FULL{}
+                                 | LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_UNDER_MINIMUM{}
+                                   deriving (Prelude.Eq, Prelude.Show)
+
+liquidityPoolWithdrawResult'code ::
+                                 LiquidityPoolWithdrawResult -> LiquidityPoolWithdrawResultCode
+liquidityPoolWithdrawResult'code = XDR.xdrDiscriminant
+
+instance XDR.XDR LiquidityPoolWithdrawResult where
+  xdrType _ = "LiquidityPoolWithdrawResult"
+  xdrPut = XDR.xdrPutUnion
+  xdrGet = XDR.xdrGetUnion
+
+instance XDR.XDRUnion LiquidityPoolWithdrawResult where
+  type XDRDiscriminant LiquidityPoolWithdrawResult =
+       LiquidityPoolWithdrawResultCode
+  xdrSplitUnion
+    _x@LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_SUCCESS{}
+    = (0, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_MALFORMED{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_NO_TRUST{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_UNDERFUNDED{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_LINE_FULL{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion
+    _x@LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_UNDER_MINIMUM{}
+    = (-5, Control.Applicative.pure ())
+  xdrGetUnionArm 0
+    = Control.Applicative.pure
+        LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_SUCCESS
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure
+        LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_MALFORMED
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure
+        LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_NO_TRUST
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure
+        LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_UNDERFUNDED
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure
+        LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_LINE_FULL
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure
+        LiquidityPoolWithdrawResult'LIQUIDITY_POOL_WITHDRAW_UNDER_MINIMUM
+  xdrGetUnionArm _c
+    = Prelude.fail "invalid LiquidityPoolWithdrawResult discriminant"
+
+data OperationResultCode = OpINNER
+                         | OpBAD_AUTH
+                         | OpNO_ACCOUNT
+                         | OpNOT_SUPPORTED
+                         | OpTOO_MANY_SUBENTRIES
+                         | OpEXCEEDED_WORK_LIMIT
+                         | OpTOO_MANY_SPONSORING
                            deriving (Prelude.Eq, Prelude.Ord, Prelude.Enum, Prelude.Bounded,
                                      Prelude.Show)
 
@@ -2121,118 +4520,240 @@ instance XDR.XDR OperationResultCode where
   xdrGet = XDR.xdrGetEnum
 
 instance XDR.XDREnum OperationResultCode where
-  xdrFromEnum OPERATION_RESULT_INNER = 0
-  xdrFromEnum OPERATION_RESULT_BAD_AUTH = -1
-  xdrFromEnum OPERATION_RESULT_NO_ACCOUNT = -2
-  xdrToEnum 0 = Prelude.return OPERATION_RESULT_INNER
-  xdrToEnum (-1) = Prelude.return OPERATION_RESULT_BAD_AUTH
-  xdrToEnum (-2) = Prelude.return OPERATION_RESULT_NO_ACCOUNT
+  xdrFromEnum OpINNER = 0
+  xdrFromEnum OpBAD_AUTH = -1
+  xdrFromEnum OpNO_ACCOUNT = -2
+  xdrFromEnum OpNOT_SUPPORTED = -3
+  xdrFromEnum OpTOO_MANY_SUBENTRIES = -4
+  xdrFromEnum OpEXCEEDED_WORK_LIMIT = -5
+  xdrFromEnum OpTOO_MANY_SPONSORING = -6
+  xdrToEnum 0 = Prelude.return OpINNER
+  xdrToEnum (-1) = Prelude.return OpBAD_AUTH
+  xdrToEnum (-2) = Prelude.return OpNO_ACCOUNT
+  xdrToEnum (-3) = Prelude.return OpNOT_SUPPORTED
+  xdrToEnum (-4) = Prelude.return OpTOO_MANY_SUBENTRIES
+  xdrToEnum (-5) = Prelude.return OpEXCEEDED_WORK_LIMIT
+  xdrToEnum (-6) = Prelude.return OpTOO_MANY_SPONSORING
   xdrToEnum _ = Prelude.fail "invalid OperationResultCode"
 
-data OperationResultTransaction = OperationResultTransaction'CREATE_ACCOUNT{operationResultTransaction'createAccountResult
-                                                                            :: !CreateAccountResult}
-                                | OperationResultTransaction'PAYMENT{operationResultTransaction'paymentResult
-                                                                     :: !PaymentResult}
-                                | OperationResultTransaction'PATH_PAYMENT{operationResultTransaction'pathPaymentResult
-                                                                          :: !PathPaymentResult}
-                                | OperationResultTransaction'MANAGE_OFFER{operationResultTransaction'manageOfferResult
-                                                                          :: !ManageOfferResult}
-                                | OperationResultTransaction'CREATE_PASSIVE_OFFER{operationResultTransaction'createPassiveOfferResult
-                                                                                  ::
-                                                                                  !ManageOfferResult}
-                                | OperationResultTransaction'SET_OPTIONS{operationResultTransaction'setOptionsResult
-                                                                         :: !SetOptionsResult}
-                                | OperationResultTransaction'CHANGE_TRUST{operationResultTransaction'changeTrustResult
-                                                                          :: !ChangeTrustResult}
-                                | OperationResultTransaction'ALLOW_TRUST{operationResultTransaction'allowTrustResult
-                                                                         :: !AllowTrustResult}
-                                | OperationResultTransaction'ACCOUNT_MERGE{operationResultTransaction'accountMergeResult
-                                                                           :: !AccountMergeResult}
-                                | OperationResultTransaction'INFLATION{operationResultTransaction'inflationResult
-                                                                       :: !InflationResult}
-                                | OperationResultTransaction'MANAGE_DATA{operationResultTransaction'manageDataResult
-                                                                         :: !ManageDataResult}
-                                  deriving (Prelude.Eq, Prelude.Show)
+data OperationResultTr = OperationResultTr'CREATE_ACCOUNT{operationResultTr'createAccountResult
+                                                          :: !CreateAccountResult}
+                       | OperationResultTr'PAYMENT{operationResultTr'paymentResult ::
+                                                   !PaymentResult}
+                       | OperationResultTr'PATH_PAYMENT_STRICT_RECEIVE{operationResultTr'pathPaymentStrictReceiveResult
+                                                                       ::
+                                                                       !PathPaymentStrictReceiveResult}
+                       | OperationResultTr'MANAGE_SELL_OFFER{operationResultTr'manageSellOfferResult
+                                                             :: !ManageSellOfferResult}
+                       | OperationResultTr'CREATE_PASSIVE_SELL_OFFER{operationResultTr'createPassiveSellOfferResult
+                                                                     :: !ManageSellOfferResult}
+                       | OperationResultTr'SET_OPTIONS{operationResultTr'setOptionsResult
+                                                       :: !SetOptionsResult}
+                       | OperationResultTr'CHANGE_TRUST{operationResultTr'changeTrustResult
+                                                        :: !ChangeTrustResult}
+                       | OperationResultTr'ALLOW_TRUST{operationResultTr'allowTrustResult
+                                                       :: !AllowTrustResult}
+                       | OperationResultTr'ACCOUNT_MERGE{operationResultTr'accountMergeResult
+                                                         :: !AccountMergeResult}
+                       | OperationResultTr'INFLATION{operationResultTr'inflationResult ::
+                                                     !InflationResult}
+                       | OperationResultTr'MANAGE_DATA{operationResultTr'manageDataResult
+                                                       :: !ManageDataResult}
+                       | OperationResultTr'BUMP_SEQUENCE{operationResultTr'bumpSeqResult
+                                                         :: !BumpSequenceResult}
+                       | OperationResultTr'MANAGE_BUY_OFFER{operationResultTr'manageBuyOfferResult
+                                                            :: !ManageBuyOfferResult}
+                       | OperationResultTr'PATH_PAYMENT_STRICT_SEND{operationResultTr'pathPaymentStrictSendResult
+                                                                    :: !PathPaymentStrictSendResult}
+                       | OperationResultTr'CREATE_CLAIMABLE_BALANCE{operationResultTr'createClaimableBalanceResult
+                                                                    ::
+                                                                    !CreateClaimableBalanceResult}
+                       | OperationResultTr'CLAIM_CLAIMABLE_BALANCE{operationResultTr'claimClaimableBalanceResult
+                                                                   :: !ClaimClaimableBalanceResult}
+                       | OperationResultTr'BEGIN_SPONSORING_FUTURE_RESERVES{operationResultTr'beginSponsoringFutureReservesResult
+                                                                            ::
+                                                                            !BeginSponsoringFutureReservesResult}
+                       | OperationResultTr'END_SPONSORING_FUTURE_RESERVES{operationResultTr'endSponsoringFutureReservesResult
+                                                                          ::
+                                                                          !EndSponsoringFutureReservesResult}
+                       | OperationResultTr'REVOKE_SPONSORSHIP{operationResultTr'revokeSponsorshipResult
+                                                              :: !RevokeSponsorshipResult}
+                       | OperationResultTr'CLAWBACK{operationResultTr'clawbackResult ::
+                                                    !ClawbackResult}
+                       | OperationResultTr'CLAWBACK_CLAIMABLE_BALANCE{operationResultTr'clawbackClaimableBalanceResult
+                                                                      ::
+                                                                      !ClawbackClaimableBalanceResult}
+                       | OperationResultTr'SET_TRUST_LINE_FLAGS{operationResultTr'setTrustLineFlagsResult
+                                                                :: !SetTrustLineFlagsResult}
+                       | OperationResultTr'LIQUIDITY_POOL_DEPOSIT{operationResultTr'liquidityPoolDepositResult
+                                                                  :: !LiquidityPoolDepositResult}
+                       | OperationResultTr'LIQUIDITY_POOL_WITHDRAW{operationResultTr'liquidityPoolWithdrawResult
+                                                                   :: !LiquidityPoolWithdrawResult}
+                         deriving (Prelude.Eq, Prelude.Show)
 
-operationResultTransaction'type ::
-                                OperationResultTransaction -> OperationType
-operationResultTransaction'type = XDR.xdrDiscriminant
+operationResultTr'type :: OperationResultTr -> OperationType
+operationResultTr'type = XDR.xdrDiscriminant
 
-instance XDR.XDR OperationResultTransaction where
-  xdrType _ = "OperationResultTransaction"
+instance XDR.XDR OperationResultTr where
+  xdrType _ = "OperationResultTr"
   xdrPut = XDR.xdrPutUnion
   xdrGet = XDR.xdrGetUnion
 
-instance XDR.XDRUnion OperationResultTransaction where
-  type XDRDiscriminant OperationResultTransaction = OperationType
-  xdrSplitUnion _x@OperationResultTransaction'CREATE_ACCOUNT{}
-    = (0,
-       XDR.xdrPut (operationResultTransaction'createAccountResult _x))
-  xdrSplitUnion _x@OperationResultTransaction'PAYMENT{}
-    = (1, XDR.xdrPut (operationResultTransaction'paymentResult _x))
-  xdrSplitUnion _x@OperationResultTransaction'PATH_PAYMENT{}
-    = (2, XDR.xdrPut (operationResultTransaction'pathPaymentResult _x))
-  xdrSplitUnion _x@OperationResultTransaction'MANAGE_OFFER{}
-    = (3, XDR.xdrPut (operationResultTransaction'manageOfferResult _x))
-  xdrSplitUnion _x@OperationResultTransaction'CREATE_PASSIVE_OFFER{}
+instance XDR.XDRUnion OperationResultTr where
+  type XDRDiscriminant OperationResultTr = OperationType
+  xdrSplitUnion _x@OperationResultTr'CREATE_ACCOUNT{}
+    = (0, XDR.xdrPut (operationResultTr'createAccountResult _x))
+  xdrSplitUnion _x@OperationResultTr'PAYMENT{}
+    = (1, XDR.xdrPut (operationResultTr'paymentResult _x))
+  xdrSplitUnion _x@OperationResultTr'PATH_PAYMENT_STRICT_RECEIVE{}
+    = (2,
+       XDR.xdrPut (operationResultTr'pathPaymentStrictReceiveResult _x))
+  xdrSplitUnion _x@OperationResultTr'MANAGE_SELL_OFFER{}
+    = (3, XDR.xdrPut (operationResultTr'manageSellOfferResult _x))
+  xdrSplitUnion _x@OperationResultTr'CREATE_PASSIVE_SELL_OFFER{}
     = (4,
+       XDR.xdrPut (operationResultTr'createPassiveSellOfferResult _x))
+  xdrSplitUnion _x@OperationResultTr'SET_OPTIONS{}
+    = (5, XDR.xdrPut (operationResultTr'setOptionsResult _x))
+  xdrSplitUnion _x@OperationResultTr'CHANGE_TRUST{}
+    = (6, XDR.xdrPut (operationResultTr'changeTrustResult _x))
+  xdrSplitUnion _x@OperationResultTr'ALLOW_TRUST{}
+    = (7, XDR.xdrPut (operationResultTr'allowTrustResult _x))
+  xdrSplitUnion _x@OperationResultTr'ACCOUNT_MERGE{}
+    = (8, XDR.xdrPut (operationResultTr'accountMergeResult _x))
+  xdrSplitUnion _x@OperationResultTr'INFLATION{}
+    = (9, XDR.xdrPut (operationResultTr'inflationResult _x))
+  xdrSplitUnion _x@OperationResultTr'MANAGE_DATA{}
+    = (10, XDR.xdrPut (operationResultTr'manageDataResult _x))
+  xdrSplitUnion _x@OperationResultTr'BUMP_SEQUENCE{}
+    = (11, XDR.xdrPut (operationResultTr'bumpSeqResult _x))
+  xdrSplitUnion _x@OperationResultTr'MANAGE_BUY_OFFER{}
+    = (12, XDR.xdrPut (operationResultTr'manageBuyOfferResult _x))
+  xdrSplitUnion _x@OperationResultTr'PATH_PAYMENT_STRICT_SEND{}
+    = (13,
+       XDR.xdrPut (operationResultTr'pathPaymentStrictSendResult _x))
+  xdrSplitUnion _x@OperationResultTr'CREATE_CLAIMABLE_BALANCE{}
+    = (14,
+       XDR.xdrPut (operationResultTr'createClaimableBalanceResult _x))
+  xdrSplitUnion _x@OperationResultTr'CLAIM_CLAIMABLE_BALANCE{}
+    = (15,
+       XDR.xdrPut (operationResultTr'claimClaimableBalanceResult _x))
+  xdrSplitUnion
+    _x@OperationResultTr'BEGIN_SPONSORING_FUTURE_RESERVES{}
+    = (16,
        XDR.xdrPut
-         (operationResultTransaction'createPassiveOfferResult _x))
-  xdrSplitUnion _x@OperationResultTransaction'SET_OPTIONS{}
-    = (5, XDR.xdrPut (operationResultTransaction'setOptionsResult _x))
-  xdrSplitUnion _x@OperationResultTransaction'CHANGE_TRUST{}
-    = (6, XDR.xdrPut (operationResultTransaction'changeTrustResult _x))
-  xdrSplitUnion _x@OperationResultTransaction'ALLOW_TRUST{}
-    = (7, XDR.xdrPut (operationResultTransaction'allowTrustResult _x))
-  xdrSplitUnion _x@OperationResultTransaction'ACCOUNT_MERGE{}
-    = (8,
-       XDR.xdrPut (operationResultTransaction'accountMergeResult _x))
-  xdrSplitUnion _x@OperationResultTransaction'INFLATION{}
-    = (9, XDR.xdrPut (operationResultTransaction'inflationResult _x))
-  xdrSplitUnion _x@OperationResultTransaction'MANAGE_DATA{}
-    = (10, XDR.xdrPut (operationResultTransaction'manageDataResult _x))
+         (operationResultTr'beginSponsoringFutureReservesResult _x))
+  xdrSplitUnion _x@OperationResultTr'END_SPONSORING_FUTURE_RESERVES{}
+    = (17,
+       XDR.xdrPut
+         (operationResultTr'endSponsoringFutureReservesResult _x))
+  xdrSplitUnion _x@OperationResultTr'REVOKE_SPONSORSHIP{}
+    = (18, XDR.xdrPut (operationResultTr'revokeSponsorshipResult _x))
+  xdrSplitUnion _x@OperationResultTr'CLAWBACK{}
+    = (19, XDR.xdrPut (operationResultTr'clawbackResult _x))
+  xdrSplitUnion _x@OperationResultTr'CLAWBACK_CLAIMABLE_BALANCE{}
+    = (20,
+       XDR.xdrPut (operationResultTr'clawbackClaimableBalanceResult _x))
+  xdrSplitUnion _x@OperationResultTr'SET_TRUST_LINE_FLAGS{}
+    = (21, XDR.xdrPut (operationResultTr'setTrustLineFlagsResult _x))
+  xdrSplitUnion _x@OperationResultTr'LIQUIDITY_POOL_DEPOSIT{}
+    = (22,
+       XDR.xdrPut (operationResultTr'liquidityPoolDepositResult _x))
+  xdrSplitUnion _x@OperationResultTr'LIQUIDITY_POOL_WITHDRAW{}
+    = (23,
+       XDR.xdrPut (operationResultTr'liquidityPoolWithdrawResult _x))
   xdrGetUnionArm 0
-    = Control.Applicative.pure
-        OperationResultTransaction'CREATE_ACCOUNT
+    = Control.Applicative.pure OperationResultTr'CREATE_ACCOUNT
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 1
-    = Control.Applicative.pure OperationResultTransaction'PAYMENT
+    = Control.Applicative.pure OperationResultTr'PAYMENT
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 2
-    = Control.Applicative.pure OperationResultTransaction'PATH_PAYMENT
+    = Control.Applicative.pure
+        OperationResultTr'PATH_PAYMENT_STRICT_RECEIVE
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 3
-    = Control.Applicative.pure OperationResultTransaction'MANAGE_OFFER
+    = Control.Applicative.pure OperationResultTr'MANAGE_SELL_OFFER
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 4
     = Control.Applicative.pure
-        OperationResultTransaction'CREATE_PASSIVE_OFFER
+        OperationResultTr'CREATE_PASSIVE_SELL_OFFER
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 5
-    = Control.Applicative.pure OperationResultTransaction'SET_OPTIONS
+    = Control.Applicative.pure OperationResultTr'SET_OPTIONS
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 6
-    = Control.Applicative.pure OperationResultTransaction'CHANGE_TRUST
+    = Control.Applicative.pure OperationResultTr'CHANGE_TRUST
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 7
-    = Control.Applicative.pure OperationResultTransaction'ALLOW_TRUST
+    = Control.Applicative.pure OperationResultTr'ALLOW_TRUST
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 8
-    = Control.Applicative.pure OperationResultTransaction'ACCOUNT_MERGE
+    = Control.Applicative.pure OperationResultTr'ACCOUNT_MERGE
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 9
-    = Control.Applicative.pure OperationResultTransaction'INFLATION
+    = Control.Applicative.pure OperationResultTr'INFLATION
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm 10
-    = Control.Applicative.pure OperationResultTransaction'MANAGE_DATA
+    = Control.Applicative.pure OperationResultTr'MANAGE_DATA
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 11
+    = Control.Applicative.pure OperationResultTr'BUMP_SEQUENCE
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 12
+    = Control.Applicative.pure OperationResultTr'MANAGE_BUY_OFFER
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 13
+    = Control.Applicative.pure
+        OperationResultTr'PATH_PAYMENT_STRICT_SEND
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 14
+    = Control.Applicative.pure
+        OperationResultTr'CREATE_CLAIMABLE_BALANCE
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 15
+    = Control.Applicative.pure
+        OperationResultTr'CLAIM_CLAIMABLE_BALANCE
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 16
+    = Control.Applicative.pure
+        OperationResultTr'BEGIN_SPONSORING_FUTURE_RESERVES
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 17
+    = Control.Applicative.pure
+        OperationResultTr'END_SPONSORING_FUTURE_RESERVES
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 18
+    = Control.Applicative.pure OperationResultTr'REVOKE_SPONSORSHIP
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 19
+    = Control.Applicative.pure OperationResultTr'CLAWBACK
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 20
+    = Control.Applicative.pure
+        OperationResultTr'CLAWBACK_CLAIMABLE_BALANCE
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 21
+    = Control.Applicative.pure OperationResultTr'SET_TRUST_LINE_FLAGS
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 22
+    = Control.Applicative.pure OperationResultTr'LIQUIDITY_POOL_DEPOSIT
+        Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm 23
+    = Control.Applicative.pure
+        OperationResultTr'LIQUIDITY_POOL_WITHDRAW
         Control.Applicative.<*> XDR.xdrGet
   xdrGetUnionArm _c
-    = Prelude.fail "invalid OperationResultTransaction discriminant"
+    = Prelude.fail "invalid OperationResultTr discriminant"
 
-data OperationResult = OperationResult'OPERATION_RESULT_INNER{operationResult'tr
-                                                              :: !OperationResultTransaction}
-                     | OperationResult'default{operationResult'code' ::
-                                               !OperationResultCode}
+data OperationResult = OperationResult'OpINNER{operationResult'tr
+                                               :: !OperationResultTr}
+                     | OperationResult'OpBAD_AUTH{}
+                     | OperationResult'OpNO_ACCOUNT{}
+                     | OperationResult'OpNOT_SUPPORTED{}
+                     | OperationResult'OpTOO_MANY_SUBENTRIES{}
+                     | OperationResult'OpEXCEEDED_WORK_LIMIT{}
+                     | OperationResult'OpTOO_MANY_SPONSORING{}
                        deriving (Prelude.Eq, Prelude.Show)
 
 operationResult'code :: OperationResult -> OperationResultCode
@@ -2245,15 +4766,37 @@ instance XDR.XDR OperationResult where
 
 instance XDR.XDRUnion OperationResult where
   type XDRDiscriminant OperationResult = OperationResultCode
-  xdrSplitUnion _x@OperationResult'OPERATION_RESULT_INNER{}
+  xdrSplitUnion _x@OperationResult'OpINNER{}
     = (0, XDR.xdrPut (operationResult'tr _x))
-  xdrSplitUnion _x@OperationResult'default{operationResult'code' = d}
-    = (XDR.xdrFromEnum d, Control.Applicative.pure ())
+  xdrSplitUnion _x@OperationResult'OpBAD_AUTH{}
+    = (-1, Control.Applicative.pure ())
+  xdrSplitUnion _x@OperationResult'OpNO_ACCOUNT{}
+    = (-2, Control.Applicative.pure ())
+  xdrSplitUnion _x@OperationResult'OpNOT_SUPPORTED{}
+    = (-3, Control.Applicative.pure ())
+  xdrSplitUnion _x@OperationResult'OpTOO_MANY_SUBENTRIES{}
+    = (-4, Control.Applicative.pure ())
+  xdrSplitUnion _x@OperationResult'OpEXCEEDED_WORK_LIMIT{}
+    = (-5, Control.Applicative.pure ())
+  xdrSplitUnion _x@OperationResult'OpTOO_MANY_SPONSORING{}
+    = (-6, Control.Applicative.pure ())
   xdrGetUnionArm 0
-    = Control.Applicative.pure OperationResult'OPERATION_RESULT_INNER
+    = Control.Applicative.pure OperationResult'OpINNER
         Control.Applicative.<*> XDR.xdrGet
+  xdrGetUnionArm (-1)
+    = Control.Applicative.pure OperationResult'OpBAD_AUTH
+  xdrGetUnionArm (-2)
+    = Control.Applicative.pure OperationResult'OpNO_ACCOUNT
+  xdrGetUnionArm (-3)
+    = Control.Applicative.pure OperationResult'OpNOT_SUPPORTED
+  xdrGetUnionArm (-4)
+    = Control.Applicative.pure OperationResult'OpTOO_MANY_SUBENTRIES
+  xdrGetUnionArm (-5)
+    = Control.Applicative.pure OperationResult'OpEXCEEDED_WORK_LIMIT
+  xdrGetUnionArm (-6)
+    = Control.Applicative.pure OperationResult'OpTOO_MANY_SPONSORING
   xdrGetUnionArm _c
-    = OperationResult'default Control.Applicative.<$> XDR.xdrToEnum _c
+    = Prelude.fail "invalid OperationResult discriminant"
 
 data TransactionResultCode = TRANSACTION_RESULT_SUCCESS
                            | TRANSACTION_RESULT_FAILED

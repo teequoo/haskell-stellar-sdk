@@ -1,4 +1,3 @@
--- | An example module.
 module Network.Stellar.Keypair
     ( KeyPair(..)
     , PublicKey
@@ -26,7 +25,8 @@ import           Data.ByteString.Base32 (decodeBase32, encodeBase32)
 import           Data.Maybe (fromJust, fromMaybe)
 import qualified Data.Text as T
 import           Data.Text.Encoding (encodeUtf8)
-import           Data.Word (Word8, Word16)
+import           Data.Word (Word16, Word8)
+import           GHC.Stack (HasCallStack)
 
 data KeyPair = KeyPair
     { kpPublicKey   :: PublicKey
@@ -35,7 +35,9 @@ data KeyPair = KeyPair
     }
 
 instance Show KeyPair where
-    show (KeyPair public _ seed) = "KeyPair {" ++ (T.unpack $ encodePublic $ unPublicKey public) ++ ", " ++ (T.unpack $ encodePrivate seed) ++ "}"
+    show (KeyPair public _ seed) =
+        "KeyPair {" ++ T.unpack (encodePublic $ unPublicKey public) ++ ", "
+        ++ T.unpack (encodePrivate seed) ++ "}"
 
 generateKeypair :: IO KeyPair
 generateKeypair = do
@@ -50,11 +52,11 @@ fromSeed seed = KeyPair public private seed
 fromPrivateKey :: T.Text -> Maybe KeyPair
 fromPrivateKey = fmap fromSeed . decodePrivate
 
-fromPrivateKey' :: T.Text -> KeyPair
+fromPrivateKey' :: HasCallStack => T.Text -> KeyPair
 fromPrivateKey' = fromSeed . decodePrivate'
 
 signatureHint :: KeyPair -> B.ByteString
-signatureHint = (B.drop 28).unPublicKey.kpPublicKey
+signatureHint = B.drop 28 . unPublicKey . kpPublicKey
 
 
 encodePublic :: B.ByteString -> T.Text
@@ -81,7 +83,7 @@ decodePublicKey' = PublicKey . decodePublic'
 decodePrivate :: T.Text -> Maybe B.ByteString
 decodePrivate = decodeKey EncodingSeed
 
-decodePrivate' :: T.Text -> B.ByteString
+decodePrivate' :: HasCallStack => T.Text -> B.ByteString
 decodePrivate' = decodeKey' EncodingSeed
 
 decodeKey :: EncodingVersion -> T.Text -> Maybe B.ByteString
@@ -94,7 +96,7 @@ decodeKey version key = do
     guard (versionCheck && checksumCheck)
     pure keyData
 
-decodeKey' :: EncodingVersion -> T.Text -> B.ByteString
+decodeKey' :: HasCallStack => EncodingVersion -> T.Text -> B.ByteString
 decodeKey' version key =
     fromMaybe (error $ "Decoding key failed " ++ T.unpack key) $
     decodeKey version key
@@ -121,6 +123,6 @@ crc16XmodemLE bs = B.pack [fromIntegral $ checksum .&. 0xFF, fromIntegral $ chec
 crcRound :: Word16 -> Word8 -> Word16
 crcRound crc byte = crc2
     where
-        code = (crc `shiftR` 8) `xor` (fromIntegral byte)
+        code = (crc `shiftR` 8) `xor` fromIntegral byte
         code2 = code `xor` (code `shiftR` 4)
         crc2 = (crc `shiftL` 8) `xor` code2 `xor` (code2 `shiftL` 5) `xor` (code2 `shiftL` 12)

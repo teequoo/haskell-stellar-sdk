@@ -4,7 +4,6 @@ module Network.Stellar.Operation
     ( makeCreateAccountOperation
     , makePaymentOperation
     , makeNativePaymentOperation
-    , makeSetOptionsOperation
     , makeChangeTrustOperation
     , makeAllowTrustOperation
     , makeAccountMergeOperation
@@ -50,40 +49,6 @@ makePaymentOperation = makeOperationGeneric3 OperationBody'PAYMENT PaymentOp
 makeNativePaymentOperation :: MuxedAccount -> Int64 -> Operation
 makeNativePaymentOperation destination =
     makePaymentOperation destination Asset'ASSET_TYPE_NATIVE
-
-makeSetOptionsOperation
-    :: Maybe AccountID
-    -> Maybe Uint32
-    -> Maybe Uint32
-    -> Maybe Uint32
-    -> Maybe Uint32
-    -> Maybe Uint32
-    -> Maybe Uint32
-    -> Maybe String32
-    -> Maybe Signer
-    -> Operation
-makeSetOptionsOperation
-        inflationDest
-        clearFlags
-        setFlags
-        masterWeight
-        lowThreshold
-        medThreshold
-        highThreshold
-        homeDomain
-        signer =
-    Operation Nothing $
-    OperationBody'SET_OPTIONS $
-    SetOptionsOp
-        inflationDest
-        clearFlags
-        setFlags
-        masterWeight
-        lowThreshold
-        medThreshold
-        highThreshold
-        homeDomain
-        signer
 
 makeChangeTrustOperation :: Asset -> Int64 -> Operation
 makeChangeTrustOperation = makeOperationGeneric2 OperationBody'CHANGE_TRUST ChangeTrustOp

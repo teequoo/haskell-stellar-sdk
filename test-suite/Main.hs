@@ -12,6 +12,7 @@ import           Network.Stellar.Asset
 import           Network.Stellar.Builder
 import           Network.Stellar.Keypair
 import           Network.Stellar.Network
+import           Network.Stellar.Signature
 import           Network.Stellar.TransactionXdr
 
 main :: IO ()
@@ -59,15 +60,18 @@ signVerifySpec =
                 keyPair = fromPrivateKey' secret
                 public = kpPublicKey keyPair
                 tx = build $ transactionBuilder public 59
+                envelope = toEnvelope tx
+            envelopeSigned <-
+                assertRight $ signTx testNetwork envelope [keyPair]
             TransactionEnvelope'ENVELOPE_TYPE_TX
-                    (TransactionV1Envelope tx' signaturesLA) <-
-                assertRight $ sign testNetwork (toEnvelope tx) [keyPair]
-            tx `shouldBe` tx'
-            let signatures = unLengthArray signaturesLA
+                    (TransactionV1Envelope txSigned signaturesArray) <-
+                pure envelopeSigned
+            tx `shouldBe` txSigned
+            let signatures = unLengthArray signaturesArray
             length signatures `shouldBe` 1
             for_ signatures $ \signature -> do
-                assert $ verify testNetwork tx public signature
-                assert $ not $ verify publicNetwork tx public signature
+                assert $ verifyTx testNetwork envelope public signature
+                assert $ not $ verifyTx publicNetwork envelope public signature
 
 assertRight :: (HasCallStack, Show a) => Either a b -> IO b
 assertRight = either (assertFailure . show) pure

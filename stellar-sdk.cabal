@@ -45,6 +45,7 @@ library
       Network.Stellar.Network
       Network.Stellar.Operation
       Network.Stellar.Query
+      Network.Stellar.Signature
       Network.Stellar.TransactionXdr
   other-modules:
       Paths_stellar_sdk

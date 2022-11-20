@@ -5,7 +5,7 @@ cabal-version: 1.12
 -- see: https://github.com/sol/hpack
 
 name:           stellar-sdk
-version:        0.1.0.1
+version:        0.2.0.0
 synopsis:       A library to use as SDK for the Stellar payment network.
 description:    This library provides functions to interact with the Stellar payment network via a Horizon server. It support querying the network, as well as building, signing and submitting transactions.
 category:       API

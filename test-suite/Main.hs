@@ -63,8 +63,8 @@ signVerifySpec =
                 envelope = toEnvelope tx
             envelopeSigned <-
                 assertRight $ signTx testNetwork envelope [keyPair]
-            TransactionEnvelope'ENVELOPE_TYPE_TX
-                    (TransactionV1Envelope txSigned signaturesArray) <-
+            TransactionEnvelope'ENVELOPE_TYPE_TX_V0
+                    (TransactionV0Envelope txSigned signaturesArray) <-
                 pure envelopeSigned
             tx `shouldBe` txSigned
             let signatures = unLengthArray signaturesArray

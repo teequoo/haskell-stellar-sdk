@@ -27,49 +27,42 @@ baseFee = 100
 data TransactionBuilder = TransactionBuilder
                     { tbSourceAccount  :: C.PublicKey
                     , tbSequenceNumber :: SequenceNumber
-                    , tbPreconditions  :: Preconditions
+                    , tbTimeBounds     :: Maybe TimeBounds
                     , tbMemo           :: Maybe Memo
                     , tbOperations     :: [Operation]
                     }
-
-buildMuxedAccount :: C.PublicKey -> MuxedAccount
-buildMuxedAccount (C.PublicKey key) =
-    MuxedAccount'KEY_TYPE_ED25519 $ lengthArray' key
 
 viewAccount :: AccountID -> C.PublicKey
 viewAccount (PublicKey'PUBLIC_KEY_TYPE_ED25519 key) =
     C.PublicKey $ unLengthArray key
 
 transactionBuilder :: C.PublicKey -> SequenceNumber -> TransactionBuilder
-transactionBuilder acc seqNum =
-    TransactionBuilder acc seqNum Preconditions'PRECOND_NONE Nothing []
+transactionBuilder acc seqNum = TransactionBuilder acc seqNum Nothing Nothing []
 
 addOperation :: TransactionBuilder -> Operation -> TransactionBuilder
 addOperation tb op = tb{ tbOperations = tbOperations tb ++ [op] }
 
 setTimeBounds :: TransactionBuilder -> Word64 -> Word64 -> TransactionBuilder
-setTimeBounds tb mintime maxtime =
-    tb  { tbPreconditions =
-            Preconditions'PRECOND_TIME $ TimeBounds mintime maxtime
-        }
+setTimeBounds tb mintime maxtime = tb{ tbTimeBounds = Just $ TimeBounds mintime maxtime }
 
-buildWithFee :: Uint32 -> TransactionBuilder -> Transaction
-buildWithFee fee (TransactionBuilder acc seqNum precond memo ops) =
-    Transaction
-        (buildMuxedAccount acc)
+buildWithFee :: Uint32 -> TransactionBuilder -> TransactionV0
+buildWithFee fee (TransactionBuilder acc seqNum bounds memo ops) =
+    TransactionV0
+        (buildAccount acc)
         (fee * fromIntegral (length ops))
         seqNum
-        precond
+        bounds
         mm
         (boundLengthArrayFromList ops)
         0
   where
     mm = fromMaybe Memo'MEMO_NONE memo
+    buildAccount (C.PublicKey key) = lengthArray' key
 
-build :: TransactionBuilder -> Transaction
+build :: TransactionBuilder -> TransactionV0
 build = buildWithFee baseFee
 
-toEnvelope :: Transaction -> TransactionEnvelope
+toEnvelope :: TransactionV0 -> TransactionEnvelope
 toEnvelope tx =
-    TransactionEnvelope'ENVELOPE_TYPE_TX $
-    TransactionV1Envelope tx emptyBoundedLengthArray
+    TransactionEnvelope'ENVELOPE_TYPE_TX_V0 $
+    TransactionV0Envelope tx emptyBoundedLengthArray

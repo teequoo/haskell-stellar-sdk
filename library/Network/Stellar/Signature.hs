@@ -27,10 +27,18 @@ import           Network.Stellar.TransactionXdr
 signBlob :: KeyPair -> B.ByteString -> B.ByteString
 signBlob KeyPair{kpPrivateKey} = C.unSignature . C.dsign kpPrivateKey
 
-verifyBlob :: C.PublicKey -> B.ByteString -> B.ByteString -> Bool
+verifyBlob
+    :: C.PublicKey
+    -> B.ByteString -- ^ message
+    -> B.ByteString -- ^ signature
+    -> Bool
 verifyBlob publicKey message = C.dverify publicKey message . C.Signature
 
-verifyBlobWithKP :: KeyPair -> B.ByteString -> B.ByteString -> Bool
+verifyBlobWithKP
+    :: KeyPair
+    -> B.ByteString -- ^ message
+    -> B.ByteString -- ^ signature
+    -> Bool
 verifyBlobWithKP KeyPair{kpPublicKey} message =
     C.dverify kpPublicKey message . C.Signature
 

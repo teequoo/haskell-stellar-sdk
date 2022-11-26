@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Network.Stellar.Signature
@@ -7,10 +8,12 @@ module Network.Stellar.Signature
     , verifyBlobWithKP
     , signTx
     , verifyTx
+    , envelopeTxHash
     )
 where
 
 import qualified Crypto.Sign.Ed25519 as C
+import           Data.ByteString (ByteString)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
 import           Data.Digest.Pure.SHA (bytestringDigest, sha256)
@@ -24,20 +27,20 @@ import           Network.Stellar.Keypair
 import           Network.Stellar.Network
 import           Network.Stellar.TransactionXdr
 
-signBlob :: KeyPair -> B.ByteString -> B.ByteString
+signBlob :: KeyPair -> ByteString -> ByteString
 signBlob KeyPair{kpPrivateKey} = C.unSignature . C.dsign kpPrivateKey
 
 verifyBlob
     :: C.PublicKey
-    -> B.ByteString -- ^ message
-    -> B.ByteString -- ^ signature
+    -> ByteString -- ^ message
+    -> ByteString -- ^ signature
     -> Bool
 verifyBlob publicKey message = C.dverify publicKey message . C.Signature
 
 verifyBlobWithKP
     :: KeyPair
-    -> B.ByteString -- ^ message
-    -> B.ByteString -- ^ signature
+    -> ByteString -- ^ message
+    -> ByteString -- ^ signature
     -> Bool
 verifyBlobWithKP KeyPair{kpPublicKey} message =
     C.dverify kpPublicKey message . C.Signature
@@ -45,7 +48,7 @@ verifyBlobWithKP KeyPair{kpPublicKey} message =
 data SignError = TooManySignatures
     deriving Show
 
-takeEnd :: Int -> B.ByteString -> B.ByteString
+takeEnd :: Int -> ByteString -> ByteString
 takeEnd n bs = B.drop (B.length bs - n) bs
 
 accountXdrFromEd :: C.PublicKey -> AccountID
@@ -100,7 +103,7 @@ signTx nId envelope newKeys =
       where
         oldSignatures' = unLengthArray oldSignatures
 
-envelopeTypeXdr :: B.ByteString
+envelopeTypeXdr :: ByteString
 envelopeTypeXdr = xdrSerialize ENVELOPE_TYPE_TX
 
 transactionHash
@@ -108,7 +111,7 @@ transactionHash
     => Network
     -> tx   -- ^ must be either Transaction, or TransactionV0,
             -- or FeeBumpTransaction
-    -> B.ByteString
+    -> ByteString
 transactionHash nId tx =
     LB.toStrict $ bytestringDigest $ sha256 $ LB.fromStrict signatureBase
   where
@@ -122,15 +125,17 @@ verifyTx
     -> DecoratedSignature
     -> Bool
 verifyTx nId envelope publicKey (DecoratedSignature _ signature) =
-    C.dverify publicKey txHash (C.Signature $ unLengthArray signature)
-  where
-    txHash =
-        case envelope of
-            TransactionEnvelope'ENVELOPE_TYPE_TX_V0
-                    (TransactionV0Envelope tx _) ->
-                transactionHash nId tx
-            TransactionEnvelope'ENVELOPE_TYPE_TX (TransactionV1Envelope tx _) ->
-                transactionHash nId tx
-            TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP
-                    (FeeBumpTransactionEnvelope tx _) ->
-                transactionHash nId tx
+    C.dverify
+        publicKey
+        (envelopeTxHash nId envelope)
+        (C.Signature $ unLengthArray signature)
+
+envelopeTxHash :: Network -> TransactionEnvelope -> ByteString
+envelopeTxHash nId = \case
+    TransactionEnvelope'ENVELOPE_TYPE_TX_V0 (TransactionV0Envelope tx _) ->
+        transactionHash nId tx
+    TransactionEnvelope'ENVELOPE_TYPE_TX (TransactionV1Envelope tx _) ->
+        transactionHash nId tx
+    TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP
+            (FeeBumpTransactionEnvelope tx _) ->
+        transactionHash nId tx

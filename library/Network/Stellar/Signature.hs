@@ -8,7 +8,7 @@ module Network.Stellar.Signature
     , verifyBlobWithKP
     , signTx
     , verifyTx
-    , envelopeTxHash
+    , transactionHash
     )
 where
 
@@ -19,7 +19,7 @@ import qualified Data.ByteString.Lazy as LB
 import           Data.Digest.Pure.SHA (bytestringDigest, sha256)
 import qualified Data.Vector as Vector
 
-import           Network.ONCRPC.XDR (XDR, xdrSerialize)
+import           Network.ONCRPC.XDR (xdrSerialize)
 import qualified Network.ONCRPC.XDR as XDR
 import           Network.ONCRPC.XDR.Array (boundLengthArray, lengthArray',
                                            unLengthArray, unsafeLengthArray)
@@ -69,54 +69,53 @@ signTx nId envelope newKeys =
         TransactionEnvelope'ENVELOPE_TYPE_TX_V0
                 (TransactionV0Envelope tx signatures) ->
             TransactionEnvelope'ENVELOPE_TYPE_TX_V0 . TransactionV0Envelope tx
-            <$> appendSignatures tx signatures
+            <$> appendSignatures signatures
         TransactionEnvelope'ENVELOPE_TYPE_TX
                 (TransactionV1Envelope tx signatures) ->
             TransactionEnvelope'ENVELOPE_TYPE_TX . TransactionV1Envelope tx
-            <$> appendSignatures tx signatures
+            <$> appendSignatures signatures
         TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP
                 (FeeBumpTransactionEnvelope tx signatures) ->
             TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP
                 . FeeBumpTransactionEnvelope tx
-            <$> appendSignatures tx signatures
+            <$> appendSignatures signatures
   where
-    signature :: XDR tx => tx -> KeyPair -> Signature
-    signature tx KeyPair{kpPrivateKey} =
+    signature :: KeyPair -> Signature
+    signature KeyPair{kpPrivateKey} =
         boundLengthArray $
-        C.unSignature $ C.dsign kpPrivateKey $ transactionHash nId tx
+        C.unSignature $ C.dsign kpPrivateKey $ transactionHash nId envelope
 
     appendSignatures
-        :: XDR tx
-        => tx
-        -> XDR.Array 20 DecoratedSignature
+        :: XDR.Array 20 DecoratedSignature
         -> Either SignError (XDR.Array 20 DecoratedSignature)
-    appendSignatures tx oldSignatures
+    appendSignatures oldSignatures
         | Vector.length oldSignatures' + length newKeys <= 20 =
             Right $
             unsafeLengthArray $
                 oldSignatures'
                 <> Vector.fromList
-                    [ DecoratedSignature (keyToHint key) (signature tx key)
+                    [ DecoratedSignature (keyToHint key) (signature key)
                     | key <- newKeys
                     ]
         | otherwise = Left TooManySignatures
       where
         oldSignatures' = unLengthArray oldSignatures
 
-envelopeTypeXdr :: ByteString
-envelopeTypeXdr = xdrSerialize ENVELOPE_TYPE_TX
-
-transactionHash
-    :: XDR tx
-    => Network
-    -> tx   -- ^ must be either Transaction, or TransactionV0,
-            -- or FeeBumpTransaction
-    -> ByteString
-transactionHash nId tx =
-    LB.toStrict $ bytestringDigest $ sha256 $ LB.fromStrict signatureBase
+transactionHash :: Network -> TransactionEnvelope -> ByteString
+transactionHash nId = \case
+    TransactionEnvelope'ENVELOPE_TYPE_TX_V0 (TransactionV0Envelope tx _) ->
+        go ENVELOPE_TYPE_TX_V0 tx
+    TransactionEnvelope'ENVELOPE_TYPE_TX (TransactionV1Envelope tx _) ->
+        go ENVELOPE_TYPE_TX tx
+    TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP
+            (FeeBumpTransactionEnvelope tx _) ->
+        go ENVELOPE_TYPE_TX_FEE_BUMP tx
   where
-    txXdr = xdrSerialize tx
-    signatureBase = B.concat [nId, envelopeTypeXdr, txXdr]
+    go typ tx =
+        LB.toStrict $
+        bytestringDigest $
+        sha256 $
+        LB.fromStrict $ B.concat [nId, xdrSerialize typ, xdrSerialize tx]
 
 verifyTx
     :: Network
@@ -127,15 +126,5 @@ verifyTx
 verifyTx nId envelope publicKey (DecoratedSignature _ signature) =
     C.dverify
         publicKey
-        (envelopeTxHash nId envelope)
+        (transactionHash nId envelope)
         (C.Signature $ unLengthArray signature)
-
-envelopeTxHash :: Network -> TransactionEnvelope -> ByteString
-envelopeTxHash nId = \case
-    TransactionEnvelope'ENVELOPE_TYPE_TX_V0 (TransactionV0Envelope tx _) ->
-        transactionHash nId tx
-    TransactionEnvelope'ENVELOPE_TYPE_TX (TransactionV1Envelope tx _) ->
-        transactionHash nId tx
-    TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP
-            (FeeBumpTransactionEnvelope tx _) ->
-        transactionHash nId tx

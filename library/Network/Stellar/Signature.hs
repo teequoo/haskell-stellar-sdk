@@ -104,18 +104,22 @@ signTx nId envelope newKeys =
 transactionHash :: Network -> TransactionEnvelope -> ByteString
 transactionHash nId = \case
     TransactionEnvelope'ENVELOPE_TYPE_TX_V0 (TransactionV0Envelope tx _) ->
-        go ENVELOPE_TYPE_TX_V0 tx
+        go  (   xdrSerialize ENVELOPE_TYPE_TX
+            <>  xdrSerialize PUBLIC_KEY_TYPE_ED25519
+            )
+            tx
     TransactionEnvelope'ENVELOPE_TYPE_TX (TransactionV1Envelope tx _) ->
-        go ENVELOPE_TYPE_TX tx
+        go (xdrSerialize ENVELOPE_TYPE_TX) tx
     TransactionEnvelope'ENVELOPE_TYPE_TX_FEE_BUMP
             (FeeBumpTransactionEnvelope tx _) ->
-        go ENVELOPE_TYPE_TX_FEE_BUMP tx
+        go (xdrSerialize ENVELOPE_TYPE_TX_FEE_BUMP) tx
   where
-    go typ tx =
+    go prefix tx =
         LB.toStrict $
         bytestringDigest $
         sha256 $
-        LB.fromStrict $ B.concat [nId, xdrSerialize typ, xdrSerialize tx]
+        LB.fromStrict $
+        B.concat [nId, prefix, xdrSerialize tx]
 
 verifyTx
     :: Network

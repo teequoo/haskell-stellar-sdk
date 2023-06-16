@@ -3,6 +3,7 @@ resolver: lts-19.30
 packages:
   - .
   - stellar-horizon
+  - wallet
 
 extra-deps:
   - DRBG-0.5.5

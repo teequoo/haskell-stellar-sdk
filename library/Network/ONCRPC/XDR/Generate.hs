@@ -24,7 +24,8 @@ import qualified Network.ONCRPC.XDR.Parse as XDR
 import           Network.ONCRPC.XDR.Reident
 
 name :: String -> HS.Name ()
-name s@(~(c:_))
+name "" = error "empty name"
+name s@(c:_)
   | isAlpha c || c == '_' = HS.Ident () s
   | otherwise = HS.Symbol () s
 
@@ -34,7 +35,8 @@ infix 9 !, !.
 (!) m = HS.Qual () (HS.ModuleName () m) . name
 
 (!.) :: String -> String -> HS.Exp ()
-(!.) m n@(~(c:_))
+_ !. [] = error "empty qualified name"
+m !. n@(c:_)
   | isUpper c || c == ':' = HS.Con () $ m ! n
   | otherwise = HS.Var () $ m ! n
 
@@ -46,12 +48,15 @@ instDecl c t = HS.InstDecl () Nothing
 dataDecl :: String -> [HS.ConDecl ()] -> [String] -> HS.Decl ()
 dataDecl n con derive = HS.DataDecl () (HS.DataType ()) Nothing (HS.DHead () $ HS.name n)
   (map (HS.QualConDecl () Nothing Nothing) con)
-  (Just $ HS.Deriving () $ map (HS.IRule () Nothing Nothing . HS.IHCon () . ("Prelude"!)) derive)
+  [HS.Deriving () Nothing $ map (HS.IRule () Nothing Nothing . HS.IHCon () . ("Prelude"!)) derive]
 
 constantType :: HS.Type ()
 constantType = HS.TyForall ()
   Nothing
-  (Just $ HS.CxSingle () $ HS.ClassA () ("Prelude"!"Integral") [t])
+  ( Just $
+    HS.CxSingle () $
+    HS.TypeA () (HS.TyApp () (HS.TyCon () ("Prelude"!"Integral")) t)
+  )
   t
   where
   t = HS.TyVar () $ HS.name "a"
@@ -256,17 +261,17 @@ data GenerateOptions = GenerateOptions
 
 -- |Parse an XDR specification and generate a Haskell module, or fail on error.
 -- The 'String' argument provides a description of the input to use in parse errors.
-generateModule :: Monad m => GenerateOptions -> String -> BSLC.ByteString -> m (HS.Module ())
+generateModule :: MonadFail m => GenerateOptions -> String -> BSLC.ByteString -> m (HS.Module ())
 generateModule GenerateOptions{..} n b = do
   (d, s) <- either (fail . show) return $ XDR.parse n b
   return $ specification generateModuleName $ reident generateReidentOptions s d
 
 -- |Parse an XDR specification and generate pretty-printed Haskell source string, or fail on error.
 -- The 'String' argument provides a description of the input to use in parse errors.
-generate :: Monad m => GenerateOptions -> String -> BSLC.ByteString -> m String
+generate :: MonadFail m => GenerateOptions -> String -> BSLC.ByteString -> m String
 generate opts n s = do
   m <- generateModule opts n s
-  return $ "-- |Generated from " ++ n ++ " by <https://github.com/dylex/oncrpc hsrpcgen>\n"
+  return $ "-- |Generated from " ++ n ++ " by <https://github.com/dylex/haskell-nfs/tree/master/rpc hsrpcgen>\n"
     ++ prettyPrintWithMode defaultMode
       { classIndent   = 2
       , doIndent      = 2

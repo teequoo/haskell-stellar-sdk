@@ -1,0 +1,91 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.35.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           stellar-sdk
+version:        0.2.0.0
+synopsis:       A library to use as SDK for the Stellar payment network.
+description:    This library provides functions to interact with the Stellar payment network via a Horizon server. It support querying the network, as well as building, signing and submitting transactions.
+category:       API
+homepage:       https://github.com/teequoo/stellar-sdk#readme
+bug-reports:    https://github.com/teequoo/stellar-sdk/issues
+author:         teequoo
+maintainer:     teequoo
+license:        Apache-2.0
+build-type:     Simple
+extra-source-files:
+    CHANGELOG.md
+    LICENSE.md
+    package.yaml
+    README.md
+    stack.yaml
+
+source-repository head
+  type: git
+  location: https://github.com/teequoo/stellar-sdk
+
+library
+  exposed-modules:
+      Network.ONCRPC.XDR
+      Network.ONCRPC.XDR.Array
+      Network.ONCRPC.XDR.Cabal
+      Network.ONCRPC.XDR.Generate
+      Network.ONCRPC.XDR.Opaque
+      Network.ONCRPC.XDR.Parse
+      Network.ONCRPC.XDR.Reident
+      Network.ONCRPC.XDR.Serial
+      Network.ONCRPC.XDR.Specification
+      Network.ONCRPC.XDR.Types
+      Network.Stellar.Asset
+      Network.Stellar.Builder
+      Network.Stellar.Horizon
+      Network.Stellar.Keypair
+      Network.Stellar.Network
+      Network.Stellar.Operation
+      Network.Stellar.Query
+      Network.Stellar.Signature
+      Network.Stellar.TransactionXdr
+  other-modules:
+      Paths_stellar_sdk
+  hs-source-dirs:
+      library
+  ghc-options: -Wall
+  build-depends:
+      Cabal
+    , DRBG
+    , SHA
+    , aeson
+    , base
+    , base32
+    , base64-bytestring
+    , bytestring
+    , cereal
+    , containers
+    , ed25519
+    , filepath
+    , haskell-src-exts
+    , parsec
+    , req
+    , text
+    , vector
+  default-language: Haskell2010
+
+test-suite stellar-sdk-test-suite
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_stellar_sdk
+  hs-source-dirs:
+      test-suite
+  ghc-options: -Wall -rtsopts -threaded -with-rtsopts=-N
+  build-depends:
+      HUnit
+    , base
+    , bytestring
+    , hspec
+    , stellar-sdk
+    , tasty
+    , tasty-hspec
+  default-language: Haskell2010

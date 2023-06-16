@@ -9,3 +9,9 @@ transactions to the network.
 
 The code to parse XDR specifications and generate the corresponding code was
 taken from [dylex/haskell-nfs](https://github.com/dylex/haskell-nfs/tree/master/rpc).
+
+## Build
+
+```
+haskell-stellar-sdk/library/Network/Stellar$ hsrpcgen Stellar-transaction.x -o TransactionXdr.hs -m Network.Stellar.TransactionXdr
+```

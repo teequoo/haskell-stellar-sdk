@@ -1,0 +1,8 @@
+cabal-version: >=1.2
+name:          wallet
+version:       0
+build-type:    Simple
+
+executable wallet
+  build-depends: base
+  main-is:       Main.hs

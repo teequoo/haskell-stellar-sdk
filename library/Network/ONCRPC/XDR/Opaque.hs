@@ -12,7 +12,6 @@ module Network.ONCRPC.XDR.Opaque
   ) where
 
 import           Data.ByteString (ByteString)
-import           Data.Functor.Identity (runIdentity)
 
 import           Network.ONCRPC.XDR.Array
 import           Network.ONCRPC.XDR.Serial
@@ -23,12 +22,12 @@ class Opaqued a where
   opacify :: a -> ByteString
   default opacify :: XDR a => a -> ByteString
   opacify = xdrSerialize
-  unopacify :: Monad m => ByteString -> m a
-  default unopacify :: (XDR a, Monad m) => ByteString -> m a
+  unopacify :: MonadFail m => ByteString -> m a
+  default unopacify :: (XDR a, MonadFail m) => ByteString -> m a
   unopacify = either fail return . xdrDeserialize
 
 unopacify' :: Opaqued a => ByteString -> a
-unopacify' = runIdentity . unopacify
+unopacify' = either error id . unopacify
 
 toOpaque :: (Opaqued a, KnownOrdering o, KnownNat n) => a -> Maybe (LengthArray o n ByteString)
 toOpaque = lengthArray . opacify
@@ -36,7 +35,7 @@ toOpaque = lengthArray . opacify
 toOpaque' :: (Opaqued a, KnownOrdering o, KnownNat n) => a -> LengthArray o n ByteString
 toOpaque' = lengthArray' . opacify
 
-fromOpaque :: (Opaqued a, Monad m) => LengthArray o n ByteString -> m a
+fromOpaque :: (Opaqued a, MonadFail m) => LengthArray o n ByteString -> m a
 fromOpaque = unopacify . unLengthArray
 
 fromOpaque' :: Opaqued a => LengthArray o n ByteString -> a

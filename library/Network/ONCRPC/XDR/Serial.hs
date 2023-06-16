@@ -1,3 +1,5 @@
+{-# OPTIONS -Wno-orphans #-}
+
 -- |XDR Serialization
 
 {-# LANGUAGE DataKinds #-}
@@ -16,7 +18,7 @@ module Network.ONCRPC.XDR.Serial
   , xdrDiscriminant
   , xdrPutUnion
   , xdrGetUnion
-  
+
   , xdrSerialize
   , xdrSerializeLazy
   , xdrDeserialize
@@ -26,15 +28,17 @@ module Network.ONCRPC.XDR.Serial
 import           Control.Monad (guard, unless, replicateM)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Functor.Identity (runIdentity)
 import           Data.Maybe (fromJust)
 import           Data.Proxy (Proxy(..))
 import qualified Data.Serialize as S
 import qualified Data.Vector as V
 import qualified Network.ONCRPC.XDR.Types as XDR
-import           GHC.TypeLits (KnownNat, natVal)
+import           GHC.TypeLits (natVal)
 
 import           Network.ONCRPC.XDR.Array
+
+instance MonadFail (Either String) where
+  fail = Left
 
 -- |An XDR type that can be (de)serialized.
 class XDR a where
@@ -77,7 +81,7 @@ instance XDR XDR.Bool where
 -- The 'Enum' instance is derived automatically to allow 'succ', etc. to work usefully in Haskell, whereas the 'XDREnum' reflects the XDR-defined values.
 class (XDR a, Enum a) => XDREnum a where
   xdrFromEnum :: a -> XDR.Int
-  xdrToEnum :: Monad m => XDR.Int -> m a
+  xdrToEnum :: MonadFail m => XDR.Int -> m a
 
 instance XDREnum XDR.Int where
   xdrFromEnum = id
@@ -89,7 +93,7 @@ instance XDREnum XDR.UnsignedInt where
 
 -- |Version of 'xdrToEnum' that fails at runtime for invalid values: @fromMaybe undefined . 'xdrToEnum'@.
 xdrToEnum' :: XDREnum a => XDR.Int -> a
-xdrToEnum' = runIdentity . xdrToEnum
+xdrToEnum' = either error id . xdrToEnum
 
 -- |Default implementation of 'xdrPut' for 'XDREnum'.
 xdrPutEnum :: XDREnum a => a -> S.Put
@@ -108,7 +112,7 @@ instance XDREnum XDR.Bool where
 
 -- |An XDR type defined with \"union\"
 class (XDR a, XDREnum (XDRDiscriminant a)) => XDRUnion a where
-  type XDRDiscriminant a :: *
+  type XDRDiscriminant a
   -- |Split a union into its discriminant and body generator.
   xdrSplitUnion :: a -> (XDR.Int, S.Put)
   -- |Get the body of a union based on its discriminant.
@@ -143,7 +147,7 @@ xdrPutPad n = case n `mod` 4 of
   0 -> return ()
   1 -> S.putWord16host 0 >> S.putWord8 0
   2 -> S.putWord16host 0
-  ~3 -> S.putWord8 0
+  _ {- must be 3 -} -> S.putWord8 0
 
 xdrGetPad :: XDR.Length -> S.Get ()
 xdrGetPad n = case n `mod` 4 of
@@ -155,7 +159,7 @@ xdrGetPad n = case n `mod` 4 of
   2 -> do
     0 <- S.getWord16host
     return ()
-  ~3 -> do
+  _ {- must be 3 -} -> do
     0 <- S.getWord8
     return ()
 
@@ -164,7 +168,7 @@ bsLength = fromIntegral . BS.length
 
 xdrPutByteString :: XDR.Length -> BS.ByteString -> S.Put
 xdrPutByteString l b = do
-  unless (bsLength b == l) $ fail "xdrPutByteString: incorrect length"
+  unless (bsLength b == l) $ error "xdrPutByteString: incorrect length"
   S.putByteString b
   xdrPutPad l
 
@@ -237,7 +241,7 @@ instance KnownNat n => XDR (LengthArray 'LT n BS.ByteString) where
   xdrPut o = do
     xdrPut l
     xdrPutByteString l b
-    where 
+    where
     l = bsLength b
     b = unLengthArray o
   xdrGet = xdrGetBoundedArray xdrGetByteString

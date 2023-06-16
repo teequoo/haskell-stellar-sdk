@@ -1,12 +1,11 @@
 -- |Various kinds of arrays (lists, vectors, bytestrings) with statically aserted length constraints encoded in their type.
 
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE ExplicitNamespaces #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
--- {-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 module Network.ONCRPC.XDR.Array
   ( KnownNat
   , KnownOrdering
@@ -31,17 +30,18 @@ module Network.ONCRPC.XDR.Array
   , fromLengthList
   ) where
 
-import           Prelude hiding (length, take, drop, replicate)
+import           Prelude hiding (drop, length, replicate, take)
+
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.List as List
-import           Data.Maybe (fromMaybe, fromJust)
-import           Data.Monoid (Monoid, (<>))
-import           Data.Proxy (Proxy(..))
-import           Data.String (IsString(..))
+import           Data.Maybe (fromJust, fromMaybe)
+import           Data.Proxy (Proxy (..))
+import           Data.String (IsString (..))
 import qualified Data.Vector as V
 import           Data.Word (Word8)
-import           GHC.TypeLits (Nat, KnownNat, natVal, type (+), type CmpNat)
+import           GHC.Stack (HasCallStack)
+import           GHC.TypeLits (KnownNat, Nat, natVal, type (+), type CmpNat)
 
 class HasLength a where
   length :: a -> Int
@@ -50,7 +50,7 @@ class HasLength a where
   compareLength = compare . length
 
 class (Monoid a, HasLength a) => Array a where
-  type Elem a :: *
+  type Elem a
   take :: Int -> a -> a
   replicate :: Int -> Elem a -> a
   fromList :: [Elem a] -> a
@@ -152,7 +152,10 @@ lengthArray a
   where l = LengthArray a :: LengthArray o n a
 
 -- |Create a 'LengthArray' or runtime error if the assertion fails: @fromMaybe undefined . 'lengthArray'@
-lengthArray' :: forall o n a . (KnownOrdering o, KnownNat n, HasLength a) => a -> LengthArray o n a
+lengthArray'
+  :: forall o n a
+  . (HasCallStack, KnownOrdering o, KnownNat n, HasLength a)
+  => a -> LengthArray o n a
 lengthArray' a = fromMaybe (error $ "lengthArray': fails check " ++ describeLengthArray (fromJust la)) la
   where la = lengthArray a
 

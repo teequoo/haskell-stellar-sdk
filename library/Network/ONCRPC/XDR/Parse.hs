@@ -1,6 +1,4 @@
 -- | XDR Parser for .x files, as per RFC4506 and RPC extensions from RFC5531
-
-{-# LANGUAGE TupleSections #-}
 module Network.ONCRPC.XDR.Parse
   ( Binding(..)
   , Scope
@@ -8,7 +6,7 @@ module Network.ONCRPC.XDR.Parse
   ) where
 
 import           Control.Applicative ((<|>))
-import           Control.Arrow ((***), second)
+import           Control.Arrow (second)
 import           Control.Monad (void, join, liftM2)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Char (digitToInt, isLower, isUpper, toLower, toUpper)
@@ -17,6 +15,7 @@ import qualified Data.Map as Map
 import           Data.Maybe (catMaybes, mapMaybe)
 import qualified Data.Set as Set
 import qualified Text.Parsec as P
+import           Text.Parsec ((<?>))
 import qualified Text.Parsec.Token as PT
 
 import qualified Network.ONCRPC.XDR.Types as XDR
@@ -35,17 +34,20 @@ tupleM :: Monad m => m a -> m b -> m (a, b)
 tupleM = liftM2 (,)
 
 baseScope :: Scope
-baseScope = Map.fromList $
-  ("bool",   Binding False $ TypeDef $ TypeSingle $ TypeEnum $ EnumBody $ boolValues)
-  : map (id *** Binding False . TypeDef . TypeSingle)
-    [ ("int",       TypeInt)
-    , ("unsigned",  TypeUnsignedInt)
-    , ("hyper",     TypeHyper)
-    , ("float",     TypeFloat)
-    , ("double",    TypeDouble)
-    , ("quadruple", TypeQuadruple)
-    ]
-  ++ map (second $ Binding False . Constant . toInteger) boolValues
+baseScope =
+  Map.fromList $
+    ( "bool"
+    , Binding False $ TypeDef $ TypeSingle $ TypeEnum $ EnumBody boolValues
+    )
+    : map (second (Binding False . TypeDef . TypeSingle))
+        [ ("int",       TypeInt)
+        , ("unsigned",  TypeUnsignedInt)
+        , ("hyper",     TypeHyper)
+        , ("float",     TypeFloat)
+        , ("double",    TypeDouble)
+        , ("quadruple", TypeQuadruple)
+        ]
+    ++ map (second $ Binding False . Constant . toInteger) boolValues
 
 toggleCase :: String -> String
 toggleCase (c:s)
@@ -176,12 +178,12 @@ optionalDeclaration =
   <|> Nothing <$ reserved "void"
 
 constant :: Parser Integer
-constant = (PT.lexeme token $
-  nat <|> P.char '-' *> (negate <$> dec))
-    P.<?> "constant" where
-  nat = P.char '0' *> (P.oneOf "xX" *> number 16 P.hexDigit <|> number 8 P.octDigit <|> return 0) <|> dec
-  dec = number 10 P.digit
-  number base digit = foldl (\x d -> base*x + toInteger (digitToInt d)) 0 <$> P.many1 digit
+constant =
+  PT.lexeme token (nat <|> P.char '-' *> (negate <$> dec)) <?> "constant"
+  where
+    nat = P.char '0' *> (P.oneOf "xX" *> number 16 P.hexDigit <|> number 8 P.octDigit <|> return 0) <|> dec
+    dec = number 10 P.digit
+    number base digit = foldl (\x d -> base*x + toInteger (digitToInt d)) 0 <$> P.many1 digit
 
 value :: Integral n => Parser n
 value = resolveValue =<<

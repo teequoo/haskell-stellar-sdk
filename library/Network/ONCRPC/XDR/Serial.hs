@@ -1,13 +1,12 @@
 {-# OPTIONS -Wno-orphans #-}
 
--- |XDR Serialization
-
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+
+-- | XDR Serialization
 module Network.ONCRPC.XDR.Serial
   ( XDR(..)
   , XDREnum(..)
@@ -195,10 +194,7 @@ xdrGetBoundedArray g = do
 
 instance (KnownNat n, XDR a) => XDR (LengthArray 'EQ n [a]) where
   xdrType la = fixedLength la $ xdrType $ head $ unLengthArray la
-  xdrPut la = do
-    mapM_ xdrPut a
-    where
-    a = unLengthArray la
+  xdrPut la = mapM_ xdrPut a where a = unLengthArray la
   xdrGet = unsafeLengthArray <$>
     replicateM (fromInteger (natVal (Proxy :: Proxy n))) xdrGet
 
@@ -213,10 +209,7 @@ instance (KnownNat n, XDR a) => XDR (LengthArray 'LT n [a]) where
 
 instance (KnownNat n, XDR a) => XDR (LengthArray 'EQ n (V.Vector a)) where
   xdrType la = fixedLength la $ xdrType $ V.head $ unLengthArray la
-  xdrPut la = do
-    mapM_ xdrPut a
-    where
-    a = unLengthArray la
+  xdrPut la = mapM_ xdrPut a where a = unLengthArray la
   xdrGet = unsafeLengthArray <$>
     V.replicateM (fromInteger (natVal (Proxy :: Proxy n))) xdrGet
 

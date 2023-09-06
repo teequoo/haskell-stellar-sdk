@@ -33,7 +33,8 @@ runRPCGen custom (indir, infile) (outdir, outfile) verb = do
   joinopt t = case (maybe False boolish $ opt $ t ++ "s-unique", opt $ "join-" ++ t) of
     (False, j) -> Just $ fromMaybe "'" j
     (True, Nothing) -> Nothing
-    (True, Just _) -> error $ "x-rpcgen join and unique options are mutually exclusive"
+    (True, Just _) ->
+      error "x-rpcgen join and unique options are mutually exclusive"
   boolish s = map toLower s `isPrefixOf` "true"
   opt f = lookup f custom
   inpath = indir </> infile

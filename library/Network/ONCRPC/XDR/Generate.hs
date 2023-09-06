@@ -77,7 +77,8 @@ specType (TypeIdentifier t) = Just $ HS.TyCon () $ ""!t
 specType t = HS.TyCon () . (!) "XDR" <$> primType t
 
 specType' :: TypeSpecifier -> HS.Type ()
-specType' = fromMaybe (error $ "parameter data structures are not supported") . specType
+specType' =
+  fromMaybe (error "parameter data structures are not supported") . specType
 
 lengthType :: String -> XDR.Length -> HS.Type ()
 lengthType t l = HS.TyApp () (HS.TyCon () $ "XDR"!t) $ HS.TyPromoted () $ HS.PromotedInteger () (toInteger l) (show l)
@@ -241,16 +242,33 @@ hasProgramDefinition = any isProgramDefinition where
   isProgramDefinition _ = False
 
 specification :: String -> Specification -> HS.Module ()
-specification n l = HS.Module ()
-  (Just $ HS.ModuleHead () (HS.ModuleName () n) Nothing Nothing)
-  [ HS.LanguagePragma () $ map HS.name ["DataKinds", "TypeFamilies"] ]
-  ([HS.ImportDecl () (HS.ModuleName () "Prelude") True False False Nothing Nothing Nothing
-  , HS.ImportDecl () (HS.ModuleName () "Control.Applicative") True False False Nothing Nothing Nothing
-  , HS.ImportDecl () (HS.ModuleName () "Network.ONCRPC.XDR") True False False Nothing (Just $ HS.ModuleName () "XDR") Nothing
-  ] ++ if hasProgramDefinition l then
-  [ HS.ImportDecl () (HS.ModuleName () "Network.ONCRPC.Types") True False False Nothing (Just $ HS.ModuleName () "RPC") Nothing ]
-  else [])
-  $ concatMap definition l
+specification specName specContent =
+  HS.Module
+    ()
+    (Just $ HS.ModuleHead () (HS.ModuleName () specName) Nothing Nothing)
+    [HS.LanguagePragma () $ map HS.name ["DataKinds", "TypeFamilies"]]
+    ( [ importDecl "Prelude" Nothing
+      , importDecl "Control.Applicative" Nothing
+      , importDecl "Network.ONCRPC.XDR" $ Just $ HS.ModuleName () "XDR"
+      ]
+    ++
+      [ importDecl "Network.ONCRPC.Types" $ Just $ HS.ModuleName () "RPC"
+      | hasProgramDefinition specContent
+      ]
+    )
+    (concatMap definition specContent)
+  where
+    importDecl importModule importAs =
+      HS.ImportDecl
+      { importAnn = ()
+      , importModule = HS.ModuleName () importModule
+      , importQualified = True
+      , importSrc = False
+      , importSafe = False
+      , importPkg = Nothing
+      , importAs
+      , importSpecs = Nothing
+      }
 
 -- |Options for generating Haskell code
 data GenerateOptions = GenerateOptions

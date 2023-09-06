@@ -18,11 +18,12 @@ type HorizonServer (scheme :: Scheme) = Url scheme
 
 publicHorizon :: HorizonServer 'Https
 publicHorizon = httpsServer "horizon.stellar.org"
+
 testHorizon :: HorizonServer 'Https
 testHorizon = httpsServer "horizon-testnet.stellar.org"
 
 httpServer :: Text -> HorizonServer 'Http
-httpServer url = http url
+httpServer = http
 
 httpsServer :: Text -> HorizonServer 'Https
-httpsServer url = https url
+httpsServer = https

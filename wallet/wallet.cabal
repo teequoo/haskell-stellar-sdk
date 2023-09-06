@@ -4,5 +4,11 @@ version:       0
 build-type:    Simple
 
 executable wallet
-  build-depends: base
+  -- global
+  build-depends:
+      base
+    , optparse-generic
+
+  -- project
+  -- build-depends: stellar-horizon
   main-is:       Main.hs

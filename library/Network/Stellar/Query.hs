@@ -177,28 +177,32 @@ getTransactionPayments = getTransactionX "payments"
 -- Queries related to trading
 
 assetToParams :: T.Text -> Asset -> [(T.Text, T.Text)]
-assetToParams prefix (AssetNative) = [(prefix `T.append` "_asset_type", "native")]
+assetToParams prefix AssetNative = [(prefix `T.append` "_asset_type", "native")]
 assetToParams prefix (AssetAlphaNum4 assetcode issuer) =
   [(prefix `T.append` "_asset_type", "credit_alphanum4"), (prefix `T.append` "_asset_code", assetcode), (prefix `T.append` "_asset_issuer", issuer)]
 assetToParams prefix (AssetAlphaNum12 assetcode issuer) =
   [(prefix `T.append` "_asset_type", "credit_alphanum12"), (prefix `T.append` "_asset_code", assetcode), (prefix `T.append` "_asset_issuer", issuer)]
 
 getOrderBook :: Asset -> Asset -> HorizonQuery
-getOrderBook selling buying = (["order_book"], (assetToParams "selling" selling) ++ (assetToParams "buying" buying))
+getOrderBook selling buying =
+    ( ["order_book"]
+    , assetToParams "selling" selling ++ assetToParams "buying" buying
+    )
 
 getPaymentPaths :: C.PublicKey -> C.PublicKey -> Asset -> Word64 -> HorizonQuery
 getPaymentPaths sourceAccount destAccount asset amount =
-  (["paths"],
-      ("source_account", encodePublic $ C.unPublicKey sourceAccount)
-    : ("destination_account", encodePublic $ C.unPublicKey destAccount)
-    : ("destination_amount", T.pack $ show amount)
-    : (assetToParams "destination" asset))
+    ( ["paths"]
+    , ("source_account", encodePublic $ C.unPublicKey sourceAccount)
+        : ("destination_account", encodePublic $ C.unPublicKey destAccount)
+        : ("destination_amount", T.pack $ show amount)
+        : assetToParams "destination" asset
+    )
 
 getTradeAggregations :: Asset -> Asset -> Word64 -> Word64 -> Word64 -> [(T.Text, T.Text)] -> HorizonQuery
 getTradeAggregations base counter start end resolution params =
   (["trade_aggregations"],
-    (assetToParams "base" base)
-    ++ (assetToParams "counter" counter)
+    assetToParams "base" base
+    ++ assetToParams "counter" counter
     ++ ("start_time", T.pack $ show start)
     : ("end_time", T.pack $ show end)
     : ("resolution", T.pack $ show resolution)

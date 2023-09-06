@@ -16,6 +16,7 @@ module Stellar.Horizon.DTO
     , Balance (..)
     , FeeDistribution
     , FeeStats (..)
+    , Offer (..)
     , Operation (..)
     , Record (..)
     , Records (..)
@@ -79,6 +80,17 @@ type FeeDistribution = Map Text Text
 data FeeStats = FeeStats
     { fee_charged   :: FeeDistribution
     , max_fee       :: FeeDistribution
+    }
+    deriving (Show)
+
+data Offer = Offer
+    { amount    :: Text
+    , buying    :: Aeson.Value
+    , id        :: Text
+    , price     :: Text
+    , price_r   :: Aeson.Value
+    , seller    :: Text -- TODO G-account
+    , selling   :: Aeson.Value
     }
     deriving (Show)
 
@@ -200,6 +212,7 @@ traverse
     [ ''Account
     , ''Balance
     , ''FeeStats
+    , ''Offer
     , ''Operation
     , ''Signer
     , ''SignerType

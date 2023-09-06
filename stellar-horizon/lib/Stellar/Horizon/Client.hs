@@ -34,6 +34,7 @@ module Stellar.Horizon.Client (
     testServerBase,
     -- * Methods
     getAccount,
+    getAccountOffers,
     getAccountOperations,
     getAccounts,
     getAccountsList,
@@ -100,6 +101,11 @@ testServerBase =
 {-# NOINLINE testServerBase #-}
 
 getAccount :: Address -> ClientM Account
+getAccountOffers ::
+    Address ->
+    Maybe Text ->
+    Maybe Natural ->
+    ClientM (Records DTO.Offer)
 getAccountOperations ::
     Address ->
     Maybe Text ->
@@ -115,6 +121,7 @@ submitTransaction :: TxText -> ClientM DTO.Transaction
 Horizon { accounts =
             Accounts
             { getAccount
+            , getAccountOffers
             , getAccountOperations
             , getAccounts
             , getAccountTransactionsDto

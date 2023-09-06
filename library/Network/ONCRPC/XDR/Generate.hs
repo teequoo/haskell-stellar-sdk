@@ -1,6 +1,7 @@
--- |Generate Haskell code from XDR descriptions as per RFC4506 and RPC extensions from RFC5531
-
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
+
+-- | Generate Haskell code from XDR descriptions as per RFC4506 and RPC extensions from RFC5531
 module Network.ONCRPC.XDR.Generate
   ( generateFromFile
   , generate

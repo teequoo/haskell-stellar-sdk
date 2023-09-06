@@ -29,17 +29,17 @@ spec = do
 keypairSpec :: Spec
 keypairSpec = parallel $ describe "Network.Stellar.Keypair" $ do
     let privKey = "SB6SJLRC5KQQ4TIAI5MDDTGXMFZHHWTKB4JQC3HXHTXVO76LY6TMITK7"
-    it "can decode and encode a seed" $ do
+    it "can decode and encode a seed" $
         encodePrivate <$> decodePrivate privKey `shouldBe` Just privKey
     let kp = fromPrivateKey' privKey
-    it "can create a keypair from a seed" $ do
+    it "can create a keypair from a seed" $
         Just (kpSeed kp) `shouldBe` decodePrivate privKey
     let pubKey = kpPublicKey kp
-    it "can encode and decode a public key" $ do
+    it "can encode and decode a public key" $
         decodePublicKey (encodePublicKey pubKey) `shouldBe` Just pubKey
-    it "properly encodes the matching public key" $ do
+    it "properly encodes the matching public key" $
         encodePublicKey pubKey `shouldBe` "GC36QGNVSFIRWY4PYLBNJF7MBZAWW2SY54UPJZYWNVCNUKHIRALHMUNS"
-    it "returns a signature hint of length 4" $ do
+    it "returns a signature hint of length 4" $
         B.length (signatureHint kp) `shouldBe` 4
 
 assetSpec :: Spec
@@ -53,7 +53,7 @@ assetSpec = parallel $ describe "Network.Stellar.Asset" $ do
 
 signVerifySpec :: Spec
 signVerifySpec =
-    describe "Network.Stellar.Transaction" $ do
+    describe "Network.Stellar.Transaction" $
         it "signs and verifies the signature" $ do
             let secret =
                     "SCBBN2555NLWYMTRZ6ZT3HOBFXLXVWM63QAYKJOF4GVGMDJLIJVW7UAH"

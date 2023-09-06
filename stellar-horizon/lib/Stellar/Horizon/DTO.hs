@@ -18,6 +18,7 @@ module Stellar.Horizon.DTO
     , FeeStats (..)
     , Offer (..)
     , Operation (..)
+    , Ratio (..)
     , Record (..)
     , Records (..)
     , Signer (..)
@@ -34,6 +35,7 @@ import Data.Aeson.KeyMap qualified as Aeson
 import Data.Aeson.TH (deriveJSON)
 import Data.Aeson.Types qualified as Aeson
 import Data.Functor ((<&>))
+import Data.Int (Int32)
 import Data.List (dropWhileEnd)
 import Data.Map.Strict (Map)
 import Data.Text (Text)
@@ -65,6 +67,14 @@ newtype Address = Address Text
         (Eq, FromHttpApiData, FromJSON, Ord, Read, Show, ToHttpApiData, ToJSON)
     deriving stock Generic
 
+data Asset = Asset
+    { asset_type    :: Text
+    , asset_code    :: Maybe Text -- ^ The code for this asset.
+    , asset_issuer  :: Maybe Text
+        -- ^ The Stellar address of this asset’s issuer.
+    }
+    deriving (Show)
+
 data Balance = Balance
     { balance :: Text
         -- ^ The number of units of an asset held by this account.
@@ -85,12 +95,12 @@ data FeeStats = FeeStats
 
 data Offer = Offer
     { amount    :: Text
-    , buying    :: Aeson.Value
+    , buying    :: Asset
     , id        :: Text
     , price     :: Text
-    , price_r   :: Aeson.Value
+    , price_r   :: Ratio
     , seller    :: Text -- TODO G-account
-    , selling   :: Aeson.Value
+    , selling   :: Asset
     }
     deriving (Show)
 
@@ -103,6 +113,10 @@ data Operation = Operation
     , type_                     :: Text
     , type_i                    :: Word
     }
+    deriving (Show)
+
+-- | Numerator and Denominator
+data Ratio = Ratio{n, d :: Int32}
     deriving (Show)
 
 data Record a = Record
@@ -210,10 +224,12 @@ traverse
                 }
     )
     [ ''Account
+    , ''Asset
     , ''Balance
     , ''FeeStats
     , ''Offer
     , ''Operation
+    , ''Ratio
     , ''Signer
     , ''SignerType
     , ''Transaction

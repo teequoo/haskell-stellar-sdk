@@ -23,11 +23,12 @@ import System.IO (stderr)
 import Text.Pretty.Simple (pHPrint, pPrint)
 
 import Stellar.Horizon.Client (Address (Address), Asset, TransactionOnChain,
-                               assetFromText, getAccount, getAccountOperations,
-                               getAccountTransactionsDto, getAccountsList,
-                               getFeeStats, publicServerBase,
+                               assetFromText, getAccount, getAccountOffers,
+                               getAccountOperations, getAccountTransactionsDto,
+                               getAccountsList, getFeeStats, publicServerBase,
                                transactionFromDto)
-import Stellar.Horizon.DTO (Operation, Record (Record), Records (Records))
+import Stellar.Horizon.DTO (Offer, Operation, Record (Record),
+                            Records (Records))
 import Stellar.Horizon.DTO qualified
 
 instance ParseField Address where
@@ -46,8 +47,9 @@ data Input
     = Account Address
     | Accounts{asset :: Asset}
     | Fee_stats
-    | Operations{account :: Address}
-    | Transactions{account :: Address}
+    | Offers        {account :: Address}
+    | Operations    {account :: Address}
+    | Transactions  {account :: Address}
     deriving (Generic)
 
 instance ParseRecord Input
@@ -57,8 +59,14 @@ cli = \case
     Account account         -> getAccount account               >>= pPrint
     Accounts{asset}         -> getAccountsList asset            >>= pPrint
     Fee_stats               -> getFeeStats                      >>= pPrint
-    Operations{account}     -> getAccountOperations'   account  >>= pPrint
+    Offers      {account}   -> getAccountOffers'       account  >>= pPrint
+    Operations  {account}   -> getAccountOperations'   account  >>= pPrint
     Transactions{account}   -> getAccountTransactions' account  >>= pPrint
+
+getAccountOffers' :: Address -> ClientM [Offer]
+getAccountOffers' account = do
+    Records records <- getAccountOffers account Nothing Nothing
+    pure $ map (\Record{value} -> value) records
 
 getAccountOperations' :: Address -> ClientM [Operation]
 getAccountOperations' account = do

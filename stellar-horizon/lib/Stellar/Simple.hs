@@ -4,7 +4,6 @@
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeOperators #-}
@@ -23,6 +22,7 @@ module Stellar.Simple (
     transactionBuilder,
     op_payment,
     op_setHomeDomain,
+    op_setMasterWeight,
     op_setSigners,
     op_setThresholds,
     op_manageData,
@@ -337,6 +337,12 @@ op_setHomeDomain domain =
     XDR.OperationBody'SET_OPTIONS $
     defaultOptions
     {XDR.setOptionsOp'homeDomain = Just $ XDR.lengthArray' $ encodeUtf8 domain}
+
+op_setMasterWeight :: Word32 -> TransactionBuilder -> TransactionBuilder
+op_setMasterWeight w =
+    addOperation Nothing $
+    XDR.OperationBody'SET_OPTIONS
+        defaultOptions{XDR.setOptionsOp'masterWeight = Just w}
 
 op_setSigners :: Map Address Word8 -> TransactionBuilder -> TransactionBuilder
 op_setSigners =
